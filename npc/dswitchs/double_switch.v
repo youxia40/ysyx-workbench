@@ -1,4 +1,4 @@
-module top(
+module double_switch(
   input a,
   input b,
   output f
