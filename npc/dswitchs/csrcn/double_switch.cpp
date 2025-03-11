@@ -1,14 +1,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
-#include"Vdouble_switch.h"
+#include"Vtop.h"
 #include"verilated_fst_c.h"
 #include"verilated.h"
 int main(int argc, char** argv){
 	//激励文件
 	VerilatedContext* contextp = new VerilatedContext;                        
 	contextp->commandArgs(argc, argv);
-	Vdouble_switch* top = new Vdouble_switch{contextp};	//实例化模块
+	Vtop* top = new Vtop{contextp};	//实例化模块
 	//波形文件
  	Verilated::traceEverOn(true);			//启用波形跟踪
  	VerilatedFstC*tfp=new VerilatedFstC;		//创建跟踪对象
@@ -22,16 +22,15 @@ int main(int argc, char** argv){
 		top->b = b;
 		top->eval();
 		
-		i++;
 		tfp->dump(i); 
 		printf("a = %d, b = %d, f = %d\n", a, b, top->f);
 		assert(top->f == (a ^ b));
+		i++;
 		}
  
 	delete top;
 	delete contextp;
 	
 	tfp->close();
-	delete tfp;
 	return 0;
 }
