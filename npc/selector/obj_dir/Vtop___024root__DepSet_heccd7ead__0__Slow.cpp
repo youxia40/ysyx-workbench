@@ -48,7 +48,7 @@ VL_ATTR_COLD void Vtop___024root___eval_settle(Vtop___024root* vlSelf) {
 #ifdef VL_DEBUG
                 Vtop___024root___dump_triggers__stl(vlSelf);
 #endif
-                VL_FATAL_MT("/home/pz40/ysyx-workbench/npc/qq/vsrc/top.v", 1, "", "Settle region did not converge.");
+                VL_FATAL_MT("/home/pz40/ysyx-workbench/npc/selector/vsrc/top.v", 1, "", "Settle region did not converge.");
             }
             vlSelf->__VstlIterCount = ((IData)(1U) 
                                        + vlSelf->__VstlIterCount);
@@ -128,7 +128,10 @@ VL_ATTR_COLD void Vtop___024root___ctor_var_reset(Vtop___024root* vlSelf) {
     Vtop__Syms* const __restrict vlSymsp VL_ATTR_UNUSED = vlSelf->vlSymsp;
     VL_DEBUG_IF(VL_DBG_MSGF("+    Vtop___024root___ctor_var_reset\n"); );
     // Body
-    vlSelf->a = VL_RAND_RESET_I(1);
-    vlSelf->b = VL_RAND_RESET_I(1);
-    vlSelf->f = VL_RAND_RESET_I(1);
+    vlSelf->x0 = VL_RAND_RESET_I(2);
+    vlSelf->x1 = VL_RAND_RESET_I(2);
+    vlSelf->x2 = VL_RAND_RESET_I(2);
+    vlSelf->x3 = VL_RAND_RESET_I(2);
+    vlSelf->y = VL_RAND_RESET_I(2);
+    vlSelf->f = VL_RAND_RESET_I(2);
 }

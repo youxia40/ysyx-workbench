@@ -4,18 +4,22 @@
 #include"Vtop.h"
 #include"verilated_fst_c.h"
 #include"verilated.h"
+
+VerilatedContext* contextp = NULL;
+VerilatedFstC* tfp = NULL;
+
 int main(int argc, char** argv){
 	//激励文件
-	VerilatedContext* contextp = new VerilatedContext;                        
-	contextp->commandArgs(argc, argv);
+	contextp = new VerilatedContext;
+	tfp=new VerilatedFstC;		//创建跟踪对象                    
 	Vtop* top = new Vtop{contextp};	//实例化模块
 	//波形文件
- 	Verilated::traceEverOn(true);			//启用波形跟踪
- 	VerilatedFstC*tfp=new VerilatedFstC;		//创建跟踪对象
+ 	
+ 	contextp->traceEverOn(true);
  	top->trace(tfp, 99);
  	tfp->open("waveform.fst");			//打开fst文件
  	int i=0;
-	while (!contextp->gotFinish()){			//仿真循环
+	while (i<100){			//仿真循环
 		int a = rand() & 1;
 		int b = rand() & 1;
 		top->a = a;
@@ -27,10 +31,8 @@ int main(int argc, char** argv){
 		assert(top->f == (a ^ b));
 		i++;
 		}
- 
+ 	tfp->close();
 	delete top;
 	delete contextp;
-	
-	tfp->close();
 	return 0;
 }

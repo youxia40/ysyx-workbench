@@ -11,7 +11,11 @@ VL_INLINE_OPT void Vtop___024root___ico_sequent__TOP__0(Vtop___024root* vlSelf) 
     Vtop__Syms* const __restrict vlSymsp VL_ATTR_UNUSED = vlSelf->vlSymsp;
     VL_DEBUG_IF(VL_DBG_MSGF("+    Vtop___024root___ico_sequent__TOP__0\n"); );
     // Body
-    vlSelf->f = ((IData)(vlSelf->a) ^ (IData)(vlSelf->b));
+    vlSelf->f = ((2U & (IData)(vlSelf->y)) ? ((1U & (IData)(vlSelf->y))
+                                               ? (IData)(vlSelf->x3)
+                                               : (IData)(vlSelf->x2))
+                  : ((1U & (IData)(vlSelf->y)) ? (IData)(vlSelf->x1)
+                      : (IData)(vlSelf->x0)));
 }
 
 void Vtop___024root___eval_ico(Vtop___024root* vlSelf) {
@@ -69,7 +73,7 @@ void Vtop___024root___eval(Vtop___024root* vlSelf) {
 #ifdef VL_DEBUG
                 Vtop___024root___dump_triggers__ico(vlSelf);
 #endif
-                VL_FATAL_MT("/home/pz40/ysyx-workbench/npc/qq/vsrc/top.v", 1, "", "Input combinational region did not converge.");
+                VL_FATAL_MT("/home/pz40/ysyx-workbench/npc/selector/vsrc/top.v", 1, "", "Input combinational region did not converge.");
             }
             vlSelf->__VicoIterCount = ((IData)(1U) 
                                        + vlSelf->__VicoIterCount);
@@ -92,7 +96,7 @@ void Vtop___024root___eval(Vtop___024root* vlSelf) {
 #ifdef VL_DEBUG
                     Vtop___024root___dump_triggers__act(vlSelf);
 #endif
-                    VL_FATAL_MT("/home/pz40/ysyx-workbench/npc/qq/vsrc/top.v", 1, "", "Active region did not converge.");
+                    VL_FATAL_MT("/home/pz40/ysyx-workbench/npc/selector/vsrc/top.v", 1, "", "Active region did not converge.");
                 }
                 vlSelf->__VactIterCount = ((IData)(1U) 
                                            + vlSelf->__VactIterCount);
@@ -107,7 +111,7 @@ void Vtop___024root___eval(Vtop___024root* vlSelf) {
 #ifdef VL_DEBUG
                 Vtop___024root___dump_triggers__nba(vlSelf);
 #endif
-                VL_FATAL_MT("/home/pz40/ysyx-workbench/npc/qq/vsrc/top.v", 1, "", "NBA region did not converge.");
+                VL_FATAL_MT("/home/pz40/ysyx-workbench/npc/selector/vsrc/top.v", 1, "", "NBA region did not converge.");
             }
             __VnbaIterCount = ((IData)(1U) + __VnbaIterCount);
             Vtop___024root___eval_nba(vlSelf);
@@ -121,9 +125,15 @@ void Vtop___024root___eval_debug_assertions(Vtop___024root* vlSelf) {
     Vtop__Syms* const __restrict vlSymsp VL_ATTR_UNUSED = vlSelf->vlSymsp;
     VL_DEBUG_IF(VL_DBG_MSGF("+    Vtop___024root___eval_debug_assertions\n"); );
     // Body
-    if (VL_UNLIKELY((vlSelf->a & 0xfeU))) {
-        Verilated::overWidthError("a");}
-    if (VL_UNLIKELY((vlSelf->b & 0xfeU))) {
-        Verilated::overWidthError("b");}
+    if (VL_UNLIKELY((vlSelf->x0 & 0xfcU))) {
+        Verilated::overWidthError("x0");}
+    if (VL_UNLIKELY((vlSelf->x1 & 0xfcU))) {
+        Verilated::overWidthError("x1");}
+    if (VL_UNLIKELY((vlSelf->x2 & 0xfcU))) {
+        Verilated::overWidthError("x2");}
+    if (VL_UNLIKELY((vlSelf->x3 & 0xfcU))) {
+        Verilated::overWidthError("x3");}
+    if (VL_UNLIKELY((vlSelf->y & 0xfcU))) {
+        Verilated::overWidthError("y");}
 }
 #endif  // VL_DEBUG

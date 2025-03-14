@@ -42,11 +42,11 @@ VM_USER_LDLIBS = \
 
 # User .cpp files (from .cpp's on Verilator command line)
 VM_USER_CLASSES = \
-	double_switch \
+	selector \
 
 # User .cpp directories (from .cpp's on Verilator command line)
 VM_USER_DIR = \
-	/home/pz40/ysyx-workbench/npc/qq/csrcn \
+	/home/pz40/ysyx-workbench/npc/selector/csrcn \
 
 
 ### Default rules...
@@ -58,7 +58,7 @@ include $(VERILATOR_ROOT)/include/verilated.mk
 ### Executable rules... (from --exe)
 VPATH += $(VM_USER_DIR)
 
-double_switch.o: /home/pz40/ysyx-workbench/npc/qq/csrcn/double_switch.cpp
+selector.o: /home/pz40/ysyx-workbench/npc/selector/csrcn/selector.cpp
 	$(OBJCACHE) $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(OPT_FAST) -c -o $@ $<
 
 ### Link rules... (from --exe)
