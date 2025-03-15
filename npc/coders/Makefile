@@ -43,7 +43,7 @@ run: $(BIN)
 	@$^
 sim:
 	$(call git_commit, "sim RTL") # DO NOT REMOVE THIS LINE!!!
-	verilator --cc --trace-fst --exe --build -Wall /home/pz40/ysyx-workbench/npc/.../csrcn/*.cpp /home/pz40/ysyx-workbench/npc/.../vsrc/top.v
+	verilator --cc --trace-fst --exe --build -Wall /home/pz40/ysyx-workbench/npc/coders/csrcn/*.cpp /home/pz40/ysyx-workbench/npc/coders/vsrc/top.v
 	obj_dir/Vtop
 	gtkwave waveform.fst
 	
