@@ -14,16 +14,10 @@ void clk_clk()
 	usleep(100);
 }
 
-void reset(int n) {
-  top->rst = 1;
-  while (n -- > 0) clk_clk();
-  top->rst = 0;
-}
-
 int main() {
   nvboard_bind_all_pins(&dut);
   nvboard_init();
-  reset(255);
+ 
   while(1) {
     nvboard_update();
     clk_clk(); 
