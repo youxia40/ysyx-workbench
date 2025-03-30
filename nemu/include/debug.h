@@ -23,6 +23,7 @@
 #define Log(format, ...) \
     _Log(ANSI_FMT("[%s:%d %s] " format, ANSI_FG_BLUE) "\n", \
         __FILE__, __LINE__, __func__, ## __VA_ARGS__)
+        /*eg:Log("Value: %d", 42);输出:[main.c:42 main] Value: 42  （蓝色字体）*/
 
 #define Assert(cond, format, ...) \
   do { \

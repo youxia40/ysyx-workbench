@@ -18,6 +18,7 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 #include "sdb.h"
+#include <memory/paddr.h> 
 
 static int is_batch_mode = false;
 
@@ -49,10 +50,80 @@ static int cmd_c(char *args) {
 
 
 static int cmd_q(char *args) {
+	nemu_state.state = NEMU_QUIT;
   return -1;
 }
 
 static int cmd_help(char *args);
+
+static int cmd_si(char *args){
+  int N =1;                              //N为执行参数次数
+  if(args != NULL) {
+    N = atoi(args);                      //atoi函数是标准库函数，用于将字符串转换为整数
+    if (N <= 0) {
+      printf("Error!Invalid Argument!\n");
+      return 0;
+    }
+  }
+  else {
+    N=1;
+  }
+  cpu_exec(N);
+  return 0;
+}
+
+static int cmd_info(char *args) {                  
+  if (args == NULL) {
+    printf("Error!Invalid Argument!\n");
+    return 0;
+  }
+
+  if (strcmp(args,"r")==0){
+    isa_reg_display();
+  }
+
+  else {
+    printf("Error!Invalid Argument!\n");
+  }
+  return 0;
+}
+
+static int cmd_x(char *args) {
+  if (args == NULL) {
+    printf("Error!Please input the number and the address!\n");
+    return 0;
+  }
+
+  char *arg = strtok(args, " ");
+  if (arg == NULL) {
+    printf("Error!Invalid Argument!\n");
+    return 0;
+  }
+
+  int N = atoi(arg);                              //n为读取内存的字节数
+  if (N<= 0) {
+    printf("Error!Invalid Argument!\n");
+    return 0;
+  }
+
+  arg = strtok(NULL, " ");              //现在arg为读取内存的地址
+  if (arg == NULL) {
+    printf("Error!Please input the address!\n");
+    return 0;
+  }
+
+  paddr_t address = strtol(arg, NULL, 16);           //将arg转换为十六进制地址
+
+  for(int i=0;i<N;i++) {
+    printf("0x%08x: ",address+i*4);
+      for(int j=0;j<4;j++) {
+        printf("0x%08x ",paddr_read(address+i*4+j,4));//读取内存地址
+      }
+      printf("\n");
+  }
+
+  return 0;
+}
 
 static struct {
   const char *name;
@@ -62,7 +133,9 @@ static struct {
   { "help", "Display information about all supported commands", cmd_help },
   { "c", "Continue the execution of the program", cmd_c },
   { "q", "Exit NEMU", cmd_q },
-
+  { "si", "Execute one instruction", cmd_si },
+  { "info", "Show information about registers or watchpoints", cmd_info },
+  { "x", "Examine memory", cmd_x },
   /* TODO: Add more commands */
 
 };

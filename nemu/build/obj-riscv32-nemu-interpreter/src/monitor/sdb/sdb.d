@@ -19,6 +19,8 @@ deps_/home/pz40/ysyx-workbench/nemu/build/obj-riscv32-nemu-interpreter/src/monit
     $(wildcard include/config/target/native/elf.h) \
   /home/pz40/ysyx-workbench/nemu/include/cpu/cpu.h \
   src/monitor/sdb/sdb.h \
+  /home/pz40/ysyx-workbench/nemu/include/memory/paddr.h \
+    $(wildcard include/config/pc/reset/offset.h) \
 
 /home/pz40/ysyx-workbench/nemu/build/obj-riscv32-nemu-interpreter/src/monitor/sdb/sdb.o: $(deps_/home/pz40/ysyx-workbench/nemu/build/obj-riscv32-nemu-interpreter/src/monitor/sdb/sdb.o)
 
