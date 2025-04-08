@@ -13,6 +13,7 @@ deps_/home/pz40/ysyx-workbench/nemu/build/obj-riscv32-nemu-interpreter/src/monit
   /home/pz40/ysyx-workbench/nemu/include/debug.h \
   /home/pz40/ysyx-workbench/nemu/include/utils.h \
     $(wildcard include/config/target/native/elf.h) \
+  /home/pz40/ysyx-workbench/nemu/include/cpu/cpu.h \
 
 /home/pz40/ysyx-workbench/nemu/build/obj-riscv32-nemu-interpreter/src/monitor/sdb/watchpoint.o: $(deps_/home/pz40/ysyx-workbench/nemu/build/obj-riscv32-nemu-interpreter/src/monitor/sdb/watchpoint.o)
 

@@ -19,6 +19,8 @@
 #include <readline/history.h>
 #include "sdb.h"
 #include <memory/paddr.h> 
+#include <stdbool.h>
+#include <stdio.h>
 
 static int is_batch_mode = false;
 
@@ -81,7 +83,9 @@ static int cmd_info(char *args) {
   if (strcmp(args,"r")==0){
     isa_reg_display();
   }
-
+  else if (strcmp(args , "w")==0) {
+    info_wp();
+  }
   else {
     printf("Error!Invalid Argument!\n");
   }
@@ -125,6 +129,93 @@ static int cmd_x(char *args) {
   return 0;
 }
 
+static int cmd_p(char *args) {
+  if (args == NULL) {
+    printf("Error!Invalid Argument!Please input your expression!\n");
+   
+    return 0;
+  }
+  //表达式计算
+  bool success = false;
+  int result = expr(args, &success);
+  if (!success) {
+    printf("Error!Invalid Expression!\n");
+    return 0;
+  }
+  printf("DNUM: %d    HNUM: 0x%08x\n",result,result); 
+  return 0;
+}
+
+/* 表达式测试*/
+static int cmd_pt(char *args) {
+  char path[256];
+  snprintf(path, sizeof(path), "%s/tools/gen-expr/input", getenv("NEMU_HOME"));
+  FILE *fp = fopen(path, "r");
+  if(fp==NULL) {
+    printf("Error!File %s not found!\n",path);
+    return 0;
+  }
+
+  char buf[65536];
+  unsigned total = 0,pass = 0;
+
+  while(fgets(buf, sizeof(buf), fp) != NULL) {
+    total++;
+    uint32_t expected,real;
+    bool success = false;
+    if (sscanf(buf ,"%u %[^\r\n]",&expected,buf) != 2) { //buf为表达式，expr_res为结果
+      printf("Error!Invalid input format!\n");
+      continue;
+    }
+    real=expr(buf, &success);                           //buf+strlen(buf)+1为表达式
+    
+    if (expected == real) {
+      pass++;
+    }
+  }
+  fclose(fp);
+  printf("Test finished!Result: %d/%d (pass/total)\n",pass,total); 
+  return 0;
+}
+
+static int cmd_w(char *args){
+ if (args == NULL) {
+    printf("Error!Blank Argument!\n");
+    return 0;
+  }
+
+  bool success;
+  int value = expr(args, &success);
+  if (!success) {
+    printf("The expression is problematic!\n");
+    return 0;
+  }
+  else {
+    WP *wp = new_wp();
+    wp->value = value;
+    strcpy(wp->expr, args);
+    printf("Watchpoint %d: %s\n", wp->NO, wp->expr);
+    printf("Value: 0x%08x\n", wp->value);
+  }
+  return 0;
+}
+
+static int cmd_d(char *args){
+  if (args == NULL) {
+    printf("Error!Blank Argument!\n");
+    return 0;
+  }
+
+  int n = atoi(args);
+  if (n <= 0) {
+    printf("Error!Invalid Argument!\n");
+    return 0;
+  }
+
+  delete_wp(n);
+  return 0;
+}
+
 static struct {
   const char *name;
   const char *description;
@@ -136,6 +227,10 @@ static struct {
   { "si", "Execute one instruction", cmd_si },
   { "info", "Show information about registers or watchpoints", cmd_info },
   { "x", "Examine memory", cmd_x },
+  { "p", "Evaluate expression", cmd_p },
+  { "pt", "Test expression", cmd_pt },
+  { "w", "Set watchpoint", cmd_w },
+  { "d", "Delete watchpoint", cmd_d },
   /* TODO: Add more commands */
 
 };
@@ -169,7 +264,7 @@ void sdb_set_batch_mode() {
   is_batch_mode = true;
 }
 
-void sdb_mainloop() {
+void sdb_mainloop() {                                 //nemu交互
   if (is_batch_mode) {
     cmd_c(NULL);
     return;
@@ -208,9 +303,9 @@ void sdb_mainloop() {
 }
 
 void init_sdb() {
-  /* Compile the regular expressions. */
+  /* Compile the regular expressions. 编译正则表达式*/
   init_regex();
-
-  /* Initialize the watchpoint pool. */
+                   //测试表达式
+  /* Initialize the watchpoint pool. 初始化监视点*/
   init_wp_pool();
 }

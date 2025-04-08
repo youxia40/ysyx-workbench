@@ -15,9 +15,9 @@ void clk_clk()
 }
 
 void reset(int n) {
-  top->rst = 1;
+  dut.clk = 1;
   while (n -- > 0) clk_clk();
-  top->rst = 0;
+  dut.clk = 0;
 }
 
 int main() {

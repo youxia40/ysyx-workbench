@@ -16,7 +16,26 @@
 #ifndef __CPU_CPU_H__
 #define __CPU_CPU_H__
 
+#define NR_WP 32
+
 #include <common.h>
+
+typedef struct watchpoint {
+    int NO;                                           //监视点序号
+    struct watchpoint *next;
+    /* TODO: Add more members if necessary */
+  
+    char expr[NR_WP];                                   //监视点表达式
+    uint32_t value;                                //监视点表达式的值
+  } WP;
+  void init_wp_pool();
+  WP* new_wp(); 
+  void free_wp(WP *wp);
+  void info_wp();
+  void delete_wp(int NO);
+
+
+
 
 void cpu_exec(uint64_t n);
 
