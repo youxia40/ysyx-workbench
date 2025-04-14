@@ -110,7 +110,7 @@ static bool make_token(char *e) {                   //处理token
          * of tokens, some extra actions should be performed.
          */
 
-        switch (rules[i].token_type) {
+        switch (rules[i].token_type) {                          //读取到的token类型
           case TK_NOTYPE: break;
           case '+':
           case '-':
@@ -215,7 +215,13 @@ int find_op(int p,int q) {                               //查找主运算符
       }
     }
 
-    int curr_priority =-1;
+    int curr_priority =-1;                                //运算符的优先级
+    if (is_unary) {                               //单目运算符
+      curr_priority = 1;
+    }
+    else {                                        //双目运算符
+      curr_priority = 0;
+    }     
     switch(tokens[i].type) {                              //数字越小，优先级越高
       case TK_NEG:
       case TK_TEQ: curr_priority = 1;break;                //负号or解引用
@@ -292,7 +298,7 @@ int eval(int p,int q,bool*success) {                                        //�
 
     else if(tokens[p].type == TK_REG) {
       bool reg_success;
-      int reg_num = isa_reg_str2val(tokens[p].str,&reg_success);
+      int reg_num = isa_reg_str2val(tokens[p].str,&reg_success);          //将寄存器名转换为寄存器值
       if (!success) {
         printf("Undefined register: %s\n", tokens[p].str);
         *success = false;
@@ -310,7 +316,7 @@ int eval(int p,int q,bool*success) {                                        //�
      if(!*success) {
       return 0;
       }
-    return eval(p + 1, q - 1,success);//去括号
+    return eval(p + 1, q - 1,success);                                      //去括号
   }
 
   else {                                  //计算表达式(无括号)
@@ -368,8 +374,8 @@ int eval(int p,int q,bool*success) {                                        //�
       return value1 / value2;
       case TK_EQ: return value1 == value2;
       case TK_NEQ: return value1 != value2;
-      case TK_DNUM: return strtol(tokens[op].str, NULL, 10); //十进制
-      case TK_HNUM: return strtol(tokens[op].str, NULL, 16); //十六进制
+      case TK_DNUM: return strtol(tokens[op].str, NULL, 10);        //十进制
+      case TK_HNUM: return strtol(tokens[op].str, NULL, 16);          //十六进制
       case TK_AND: return value1 && value2;
       default:*success=false;
               printf("Unknown binary operator: %d\n", tokens[op].type);

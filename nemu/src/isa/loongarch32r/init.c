@@ -26,7 +26,7 @@ static const uint32_t img [] = {
   0xdeadbeef,  // some data
 };
 
-static void restart() {
+static void restart() {                              //初始化cpu寄存器
   /* Set the initial program counter. */
   cpu.pc = RESET_VECTOR;
 

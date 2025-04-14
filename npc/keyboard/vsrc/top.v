@@ -1,29 +1,28 @@
 module top (
-	input clk,ps2_data,ps2_clk,
+	input clk,ps2_data,ps2_clk,		//ps_data就是接受到的数据
 	input clrn,
     	input nextdata_n,		//读取下一个数据
-
     	output reg ready,		//数据就绪
-    	output reg overflow,		//fifo溢出标志
-    	output reg [7:0] ascii_code,//ascii码
-    	output reg [13:0] ascii_code_light,  
-    	output reg [7:0] scan_code,//扫描码
+    	output reg [7:0] ascii_code,	//ascii码
+    	output reg [13:0] ascii_code_light,
+    	output reg [7:0] scan_code,	//扫描码
     	output reg [13:0] scan_code_light,
-    	output reg [7:0] keystroke,//按键次数
+    	output reg [7:0] keystroke,	//按键次数
     	output reg [13:0] keystroke_light,
     	output reg [13:0] light_black
 );
     reg [9:0] buffer;  		//存储10位扫描码数据
     reg [7:0] fifo[7:0];	//暂存
     reg [2:0] w_ptr,r_ptr; 	//读写指针
-    reg [3:0] count; 		//计算数据位jj
+    reg [3:0] count; 		//计算数据位
     reg [2:0] ps2_clk_sync;	//ps2_clk时钟统计
     reg break_received;      // 断码接收标志
     reg [7:0] current_key;   // 当前按下的键
     
     assign light_black[13:0] = 14'b11111111111111;
     
-    wire valid = (buffer[0]==0) & ps2_data & (^buffer[9:1]);
+    //ps2_data停止位为高电平1
+    wire valid = (buffer[0]==0) & ps2_data & (^buffer[9:1]);     //valid用于判断数据是否有效
     
     always @(posedge clk) begin
         ps2_clk_sync <=  {ps2_clk_sync[1:0],ps2_clk};
@@ -52,25 +51,29 @@ module top (
      end
      
      always @(posedge clk) begin
-        if (clrn) begin // =1复位
-            count <= 0; w_ptr <= 0; r_ptr <= 0; overflow <= 0; ready<= 0; keystroke<=0;
+        if (clrn) begin			 // =1复位
+            count <= 0; w_ptr <= 0; r_ptr <= 0;ready<= 0; keystroke<=0;
             ascii_code <= 0;;scan_code <= 0;;break_received <= 0; current_key <= 0;
             
-            
         end
+        //count=10,读入10位数据，本身就可以代表到了停止位
         else begin
          if (sampling & (count==10) & valid) begin
                 scan_code <= buffer[8:1];
-                ascii_code <= scan[buffer[8:1]];  // 直接查表转换
+                ascii_code <= scan[buffer[8:1]];	  // 直接查表转换
             end
             
             //按键次数
             if (sampling & (count==10) & valid) begin
+            
                 if (buffer[8:1] == 8'hF0) begin
                     break_received <= 1;
                 end else if (break_received) begin
                     break_received <= 0;
-                    current_key <= 0;
+                    current_key <= 0;				//按键清零
+                    //直接清零输出信号
+                    scan_code <= 8'h00; 
+                    ascii_code <= 8'h00;
                 end else if (current_key != buffer[8:1]) begin
                     current_key <= buffer[8:1];
                     keystroke <= keystroke + 1;
@@ -78,34 +81,30 @@ module top (
             end
             
             if (sampling) begin
-              if (count == 4'd10) begin   //接收10b数据
+              if (count == 4'd10) begin   //接收了10b数据
                 if ((buffer[0] == 0) &&  // start bit=0
                     (ps2_data)       &&  // stop bit=1
                     (^buffer[9:1])) begin      // 奇偶校验
                     fifo[w_ptr] <= buffer[8:1];  // 存储扫描码
                     w_ptr <= w_ptr+1;
-                    
                       
                 end
                 count <= 0;     // for next重置
               end else begin
                 
-                buffer[count] <= ps2_data;  // store ps2_data存储
+                buffer[count] <= ps2_data;  //ps2_data数据存储
                 count <= count + 1;
               end
             end
-             // 自动维护信号
-            ready <= (w_ptr != r_ptr);
-            overflow <= (w_ptr + 1) == r_ptr;
+            
+            ready <= (w_ptr != r_ptr);      //判断是否有数据可读
 
-            if (ready & ~nextdata_n) begin
+            if (ready & ~nextdata_n) begin  //读取数据（nextdata设为计数归零信号，为1则清）
                 r_ptr <= r_ptr + 1;
             end
         end
     end
 
-	
-    
     
     	light a1(.clk(clk),.led(ascii_code),.y(ascii_code_light));
     	light s1(.clk(clk),.led(scan_code),.y(scan_code_light));

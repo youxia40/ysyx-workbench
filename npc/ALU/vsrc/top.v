@@ -3,8 +3,8 @@ module top (
 	input [2:0] choose,
 	input [3:0] a,
 	input [3:0] b,
-	output reg cin,	//是否进位
-	output reg m,   //是否溢出
+	output reg cin,					//是否进位
+	output reg m, 				  //是否溢出(仅需加/减时判断)
 	output reg [3:0] out
 );
 	always @(posedge clk)

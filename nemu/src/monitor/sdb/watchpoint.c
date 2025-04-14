@@ -71,6 +71,47 @@ void free_wp(WP *wp) {                               //将wp归还到free_链表
   printf("Watchpoint %d has been freed !\n", wp->NO); //输出监视点被释放
 }
 
+
+bool check_watchpoints() {
+  if (head == NULL) {
+    return false;                                 //无监视点时直接返回
+  }
+
+  WP *current = head;                               //遍历head链表
+  bool triggered = false;
+  
+  while (current != NULL) {
+    bool success = false;
+    int new_value = expr(current->expr, &success);                                            //计算表达式
+    
+    if (!success) {                                                                                     //表达式计算失败处理
+      printf("[Watchpoint Error] Invalid expression '%s' at wp%d\n",current->expr, current->NO); //自动删除无效监视点
+      WP *next = current->next;                                                        //先保存下一个节点
+      free_wp(current);                                                              //自动删除无效监视点
+      current = next;                                                              //直接跳转到下一个节点
+      continue;                                                                                    //跳过后续处理
+      
+    }
+    else if (new_value != current->value) {                                                 //值变化处理
+      if (!triggered) {                                             //首次触发时打印头信息
+        printf("\n--- Watchpoint Triggered ---\n");
+        triggered = true;
+      }
+      printf("Watchpoint #%d: %s\n", current->NO, current->expr);
+      printf("Old value: 0x%08x\n", current->value);
+      printf("New value: 0x%08x\n", new_value);
+      current->value = new_value;                                                   //更新为最新值
+    }
+    
+    current = current->next;
+  }
+  
+  if (triggered) {
+    printf("\n");
+  }
+  return triggered;                                                                //返回是否触发
+}
+
 void info_wp() {                                          //输出当前所有的监视点的变化情况
   WP *wp=head;    
   if (wp==NULL) {                                     //全为空，不用wp->if_used判断
@@ -78,55 +119,37 @@ void info_wp() {                                          //输出当前所有�
     return;
   }
 
+  printf("NO\tExpr\tValue\t\n");
   while(wp!=NULL) {                                      //遍历head链表
-    bool success = false;                             //标志表达式是否计算成功
-    int new_value = expr(wp->expr, &success);               //计算表达式
-
-    if(wp->value != new_value) {                       //如果值发生变化
-      printf("Watchpoint %d: %s\n", wp->NO, wp->expr);         //输出监视点的NO和表达式
-      printf("Old value: 0x%08x\n", wp->value);                 //输出旧值
-      printf("New value: 0x%08x\n", new_value);            //输出新值
-      wp->value = new_value;                            //更新监视点的值
-    }
-    wp=wp->next;                                 //后移
-  }
-
-  wp=head;                                        //重新指向头节点
-  if (wp==NULL) {                                 //如果head为空
-    printf("No watchpoints set now!\n");
-  }
-  else {
-    printf("NO\tExpr\tValue\t\n");
-    while(wp!=NULL) {
-      printf("%d\t%s\t0x%08x\n",wp->NO,wp->expr,wp->value); //输出监视点的NO、表达式和当前值
-      wp=wp->next;                                 //后移
-    }
+    printf("%d\t%s\t0x%08x\n", wp->NO, wp->expr, wp->value);
+    wp = wp->next;                                   //后移
   }
 }
 
-void delete_wp(int NO) {                               //删除指定的监视点
-  if (head==NULL) {
-    printf("head is NULL!\n");
+void delete_wp(int NO) {
+  if (head == NULL) {
+    printf("No watchpoints to delete!\n");
     return;
   }
 
-  WP *wp=head;
-  if (wp==NULL) {
-    printf("No watchpoints set now!\n");
-  }
+  WP *current = head;                                     //遍历链表
+  WP *p = NULL;                                      //p用于记录当前节点的前一个节点
 
-  else {
-    while (wp->NO!=NO) {                       //找到wp->NO==NO的监视点
-      wp=wp->next;                                 //后移
-    }
-
-    if (wp==NULL) {
-      printf("No such watchpoint %d!\n",NO);
+  while (current != NULL) {
+    if (current->NO == NO) {                                          //找到目标节点
+      if (p == NULL) {
+        head = current->next;                             //删除头节点
+      } else {
+        p->next = current->next;                                      //删除中间/尾部节点
+      }
+      free_wp(current);                                              //统一释放
+      printf("Deleted watchpoint %d\n", NO);
       return;
     }
-    else {
-      free_wp(wp);                                 //删除wp
-      printf("Deleted success!\n");
-    }
+
+    p= current;
+    current = current->next;
   }
+
+  printf("Watchpoint %d not found!\n", NO);
 }

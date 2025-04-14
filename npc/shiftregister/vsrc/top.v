@@ -18,7 +18,7 @@ begin
             bi = led[4]^led[3]^led[2]^led[0];
             led = {bi,led[7:1]};
             end
-            if(count<5000)
+            if(count<5000)				//每5000个单位时间变化一次
      	    begin
       	 	count <= count+1;
       	    end
@@ -27,7 +27,7 @@ begin
       		count <= 16'b0;
       	    end
         end
-   	if(led==8'b0)
+   	if(led==8'b0)				//全零则赋为1
         begin
             led=8'b1;
         end

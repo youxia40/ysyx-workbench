@@ -101,22 +101,22 @@ void init_monitor(int argc, char *argv[]) {
   /* Perform some global initialization. */
 
   /* Parse arguments. */
-  parse_args(argc, argv);
+  parse_args(argc, argv);                                     //解析命令行参数，位于monitor.c
 
   /* Set random seed. */
   init_rand();
 
   /* Open the log file. */
-  init_log(log_file);
+  init_log(log_file); 
 
   /* Initialize memory. */
-  init_mem();
+  init_mem();                                               //生成内存（位于paddr.c文件）
 
   /* Initialize devices. */
   IFDEF(CONFIG_DEVICE, init_device());
 
   /* Perform ISA dependent initialization. */
-  init_isa();
+  init_isa();                                                    //初始化ISA                     
 
   /* Load the image to memory. This will overwrite the built-in image. */
   long img_size = load_img();

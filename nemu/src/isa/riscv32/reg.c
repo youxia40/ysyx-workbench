@@ -32,9 +32,12 @@ void isa_reg_display() {
 
   }
   printf("\n");
+
+  printf("%s: 0x%.8x\t", "$pc", cpu.pc);       //在isa/riscv32/include/isa-def.h中定义
+  printf("\n");
 }
 
-word_t isa_reg_str2val(const char *s, bool *success) {
+word_t isa_reg_str2val(const char *s, bool *success) {        //寄存器名转换为寄存器值
   *success = false;
   if (s[0] == '$'){           // 处理$开头的寄存器名
      s++;

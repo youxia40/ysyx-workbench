@@ -25,11 +25,11 @@ int main(int argc, char *argv[]) {
 #ifdef CONFIG_TARGET_AM
   am_init_monitor();
 #else
-  init_monitor(argc, argv);
+  init_monitor(argc, argv);                                 //初始化调试器，位于monitor.c
 #endif
 
   /* Start engine. */
-  engine_start();
+  engine_start();                                         //位于init.c,转入sdb_mainloop();
 
-  return is_exit_status_bad();
+  return is_exit_status_bad();                                //位于state.c
 }

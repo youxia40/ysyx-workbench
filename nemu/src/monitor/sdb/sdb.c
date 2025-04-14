@@ -46,7 +46,7 @@ static char* rl_gets() {
 }
 
 static int cmd_c(char *args) {
-  cpu_exec(-1);
+  cpu_exec(-1);                                           //切记：-1转换无符号整数的最大值！因此此命令非单步执行
   return 0;
 }
 
@@ -87,7 +87,7 @@ static int cmd_info(char *args) {
     info_wp();
   }
   else {
-    printf("Error!Invalid Argument!\n");
+    printf("Error!The Invalid Argument!\n");
   }
   return 0;
 }
@@ -132,12 +132,11 @@ static int cmd_x(char *args) {
 static int cmd_p(char *args) {
   if (args == NULL) {
     printf("Error!Invalid Argument!Please input your expression!\n");
-   
     return 0;
   }
   //表达式计算
-  bool success = false;
-  int result = expr(args, &success);
+  bool success = false;                                     //eval中会设为true,不用管
+  int result = expr(args, &success);      
   if (!success) {
     printf("Error!Invalid Expression!\n");
     return 0;
@@ -148,33 +147,58 @@ static int cmd_p(char *args) {
 
 /* 表达式测试*/
 static int cmd_pt(char *args) {
-  char path[256];
-  snprintf(path, sizeof(path), "%s/tools/gen-expr/input", getenv("NEMU_HOME"));
+  char path[256];                                                               //存储inpu文件的路径
+  snprintf(path, sizeof(path), "%s/tools/gen-expr/input", getenv("NEMU_HOME"));        //getenv函数获取环境变量NEMU_HOME的值
   FILE *fp = fopen(path, "r");
   if(fp==NULL) {
     printf("Error!File %s not found!\n",path);
     return 0;
   }
 
-  char buf[65536];
+  char raw_line[65536];                               //读取行的缓冲区
+  char error_log[16384] = {0};                      //存储错误信息的缓冲区
+  unsigned error_offset = 0;                  //存储错误信息的下标（当前写入位置）
   unsigned total = 0,pass = 0;
 
-  while(fgets(buf, sizeof(buf), fp) != NULL) {
+  while(fgets(raw_line, sizeof(raw_line), fp) != NULL) {                //从文件中读取一行
     total++;
-    uint32_t expected,real;
+    raw_line[strcspn(raw_line, "\r\n")] = '\0';     //去掉换行符
+
+    uint32_t expected, real;
     bool success = false;
-    if (sscanf(buf ,"%u %[^\r\n]",&expected,buf) != 2) { //buf为表达式，expr_res为结果
-      printf("Error!Invalid input format!\n");
+    char expr_buf[65536];                           //表达式的缓冲区
+
+    // 解析错误
+    if (sscanf(raw_line, "%u %[^\r\n]", &expected, expr_buf) != 2) {
+      error_offset += snprintf(error_log + error_offset, sizeof(error_log) - error_offset,"[Line %04u] Bad Format: %s\n",total, raw_line);
       continue;
     }
-    real=expr(buf, &success);                           //buf+strlen(buf)+1为表达式
-    
-    if (expected == real) {
-      pass++;
+
+     // 表达式错误
+    real = expr(expr_buf, &success);
+    if (!success) {
+      error_offset += snprintf(error_log + error_offset,sizeof(error_log) - error_offset,"[Line %04u] Invalid Expression: %s\n",total, raw_line);
+      continue;
     }
+
+    // 结果错误
+    if (expected != real) {
+      error_offset += snprintf(error_log + error_offset,sizeof(error_log) - error_offset,
+        "[Line %04u] Mismatch: %s\n"
+        "  Expected: %u (0x%08x)\n"
+        "  Actual  : %u (0x%08x)\n",total, raw_line, expected, expected, real, real);
+      continue;
+    }
+    pass++;
   }
+
   fclose(fp);
-  printf("Test finished!Result: %d/%d (pass/total)\n",pass,total); 
+
+  if (error_offset > 0) {
+    printf("\nError Report:\n%s", error_log);                //输出错误信息
+  }
+  printf("\nTest finished: %d/%d passed\n", pass, total);   //输出测试结果
+  
   return 0;
 }
 
@@ -192,7 +216,14 @@ static int cmd_w(char *args){
   }
   else {
     WP *wp = new_wp();
+    
+    if (strlen(args) >= 64) {                                     //表达式长度限制
+      printf("Error: Expression exceeds max length (%d)\n", 64-1);
+      free_wp(wp);                                                            // 立即释放无效的监视点
+      return 0;
+    }
     wp->value = value;
+    
     strcpy(wp->expr, args);
     printf("Watchpoint %d: %s\n", wp->NO, wp->expr);
     printf("Value: 0x%08x\n", wp->value);
@@ -264,7 +295,7 @@ void sdb_set_batch_mode() {
   is_batch_mode = true;
 }
 
-void sdb_mainloop() {                                 //nemu交互
+void sdb_mainloop() {                                            //nemu交互（sdb主循环）
   if (is_batch_mode) {
     cmd_c(NULL);
     return;
@@ -306,6 +337,6 @@ void init_sdb() {
   /* Compile the regular expressions. 编译正则表达式*/
   init_regex();
                    //测试表达式
-  /* Initialize the watchpoint pool. 初始化监视点*/
-  init_wp_pool();
+  /* Initialize the watchpoint pool. 初始化监视点（池）*/
+  init_wp_pool();                             
 }

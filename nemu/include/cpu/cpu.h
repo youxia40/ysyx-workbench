@@ -33,7 +33,7 @@ typedef struct watchpoint {
   void free_wp(WP *wp);
   void info_wp();
   void delete_wp(int NO);
-
+  bool check_watchpoints();
 
 
 

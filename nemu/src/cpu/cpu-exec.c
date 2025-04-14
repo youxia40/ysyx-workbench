@@ -40,7 +40,7 @@ static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
   IFDEF(CONFIG_DIFFTEST, difftest_step(_this->pc, dnpc));
 }
 
-static void exec_once(Decode *s, vaddr_t pc) {
+static void exec_once(Decode *s, vaddr_t pc) {                         //执行单条指令
   s->pc = pc;
   s->snpc = pc;
   isa_exec_once(s);
@@ -73,12 +73,27 @@ static void exec_once(Decode *s, vaddr_t pc) {
 
 static void execute(uint64_t n) {                       //执行函数
   Decode s;
+  s.pc = cpu.pc;                                          // 从当前CPU状态初始化PC
+
   for (;n > 0; n --) {
-    exec_once(&s, cpu.pc);
+    exec_once(&s, s.pc);
+    cpu.pc = s.dnpc;                                                 // 更新PC
+
     g_nr_guest_inst ++;
-    trace_and_difftest(&s, cpu.pc);
+
+    trace_and_difftest(&s, s.pc);
+
     if (nemu_state.state != NEMU_RUNNING) break;
+
+    if(check_watchpoints()) {                                          //检查监视点****
+      printf("Watchpoint changed at pc=0x%08x\n", s.pc);
+      nemu_state.state = NEMU_STOP;
+      break;
+    }
+
     IFDEF(CONFIG_DEVICE, device_update());
+
+    s.pc = s.dnpc;                                          // 更新PC
   }
 }
 
@@ -97,7 +112,7 @@ void assert_fail_msg() {
 }
 
 /* Simulate how the CPU works. */
-void cpu_exec(uint64_t n) {                 //模拟cpu的执行
+void cpu_exec(uint64_t n) {                            //模拟cpu的执行
   g_print_step = (n < MAX_INST_TO_PRINT);
   switch (nemu_state.state) {
     case NEMU_END:                                //结束
@@ -110,7 +125,7 @@ void cpu_exec(uint64_t n) {                 //模拟cpu的执行
 
   uint64_t timer_start = get_time();
 
-  execute(n);
+  execute(n);                                       //执行n条指令                  
 
   uint64_t timer_end = get_time();
   g_timer += timer_end - timer_start;
