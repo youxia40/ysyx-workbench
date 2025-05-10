@@ -17,7 +17,7 @@
 
 #include <memory/vaddr.h>
 
-static inline uint32_t inst_fetch(vaddr_t *pc, int len) {
+static inline uint32_t inst_fetch(vaddr_t *pc, int len) {//取指令函数
   uint32_t inst = vaddr_ifetch(*pc, len);
   (*pc) += len;
   return inst;

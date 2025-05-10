@@ -20,15 +20,16 @@
 
 typedef struct Decode {
   vaddr_t pc;
-  vaddr_t snpc; // static next pc
-  vaddr_t dnpc; // dynamic next pc
+  vaddr_t snpc; // static next pc静态pc
+  vaddr_t dnpc; // dynamic next pc动态pc
   ISADecodeInfo isa;
   IFDEF(CONFIG_ITRACE, char logbuf[128]);
-} Decode;
+} Decode;                                                 //译码结构体
 
 // --- pattern matching mechanism ---
 __attribute__((always_inline))
-static inline void pattern_decode(const char *str, int len,
+static inline void pattern_decode(const char *str, int len,/*pattern_decode()将模式字符串转换成3个整型变量.
+  将模式字符串中的0和1抽取到整型变量key中, mask表示key的掩码, 而shift则表示opcode距离最低位的比特数量, 用于帮助编译器进行优化.*/
     uint64_t *key, uint64_t *mask, uint64_t *shift) {
   uint64_t __key = 0, __mask = 0, __shift = 0;
 #define macro(i) \
@@ -82,11 +83,13 @@ static inline void pattern_decode_hex(const char *str, int len,
 finish:
   *key = __key >> __shift;
   *mask = __mask >> __shift;
-  *shift = __shift;
+  *shift = __shift; 
 }
 
 
-// --- pattern matching wrappers for decode ---
+// --- pattern matching wrappers for decode ---INSTPAT(模式字符串, 指令名称, 指令类型, 指令执行操作);
+// 指令名称在代码中仅当注释使用, 不参与宏展开; 指令类型用于后续译码过程; 而指令执行操作则是通过C代码来模拟指令执行的真正行为
+//部分INSTPAT于src/isa/riscv32/inst.c中定义
 #define INSTPAT(pattern, ...) do { \
   uint64_t key, mask, shift; \
   pattern_decode(pattern, STRLEN(pattern), &key, &mask, &shift); \
