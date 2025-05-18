@@ -24,7 +24,7 @@ typedef struct watchpoint {
     int NO;                                           //监视点序号
     struct watchpoint *next;
     /* TODO: Add more members if necessary */
-  
+
     char expr[NR_WP];                                   //监视点表达式
     uint32_t value;                                //监视点表达式的值
   } WP;
@@ -42,7 +42,7 @@ void cpu_exec(uint64_t n);
 void set_nemu_state(int state, vaddr_t pc, int halt_ret);
 void invalid_inst(vaddr_t thispc);
 
-#define NEMUTRAP(thispc, code) set_nemu_state(NEMU_END, thispc, code)
+#define NEMUTRAP(thispc, code) set_nemu_state(NEMU_END, thispc, code)                 // nemu状态机的状态
 #define INV(thispc) invalid_inst(thispc)
 
 #endif

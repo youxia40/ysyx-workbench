@@ -6,12 +6,20 @@
 #include ISA_H // the macro `ISA_H` is defined in CFLAGS
                // it will be expanded as "x86/x86.h", "mips/mips32.h", ...
 
+
+
+
+//nemu_trap()宏展开之后是一条内联汇编语句,内联汇编语句允许我们在C代码中嵌入汇编语句
+
 #if defined(__ISA_X86__)
 # define nemu_trap(code) asm volatile ("int3" : :"a"(code))
+
 #elif defined(__ISA_MIPS32__)
 # define nemu_trap(code) asm volatile ("move $v0, %0; sdbbp" : :"r"(code))
+
 #elif defined(__riscv)
 # define nemu_trap(code) asm volatile("mv a0, %0; ebreak" : :"r"(code))
+
 #elif defined(__ISA_LOONGARCH32R__)
 # define nemu_trap(code) asm volatile("move $a0, %0; break 0" : :"r"(code))
 #else
