@@ -67,7 +67,7 @@ static long load_img() {
   return size;
 }
 
-static int parse_args(int argc, char *argv[]) {
+static int parse_args(int argc, char *argv[]) {                     //解析命令行参数
   const struct option table[] = {
     {"batch"    , no_argument      , NULL, 'b'},
     {"log"      , required_argument, NULL, 'l'},
@@ -79,11 +79,11 @@ static int parse_args(int argc, char *argv[]) {
   int o;
   while ( (o = getopt_long(argc, argv, "-bhl:d:p:", table, NULL)) != -1) {
     switch (o) {
-      case 'b': sdb_set_batch_mode(); break;
-      case 'p': sscanf(optarg, "%d", &difftest_port); break;
-      case 'l': log_file = optarg; break;
-      case 'd': diff_so_file = optarg; break;
-      case 1: img_file = optarg; return 0;
+      case 'b': sdb_set_batch_mode(); break;                        //设置批处理模式
+      case 'p': sscanf(optarg, "%d", &difftest_port); break;              //设置端口号
+      case 'l': log_file = optarg; break;                                   //设置日志文件
+      case 'd': diff_so_file = optarg; break;                                     //设置差异测试的so文件
+      case 1: img_file = optarg; return 0;                                //设置镜像文件
       default:
         printf("Usage: %s [OPTION...] IMAGE [args]\n\n", argv[0]);
         printf("\t-b,--batch              run with batch mode\n");
@@ -97,7 +97,7 @@ static int parse_args(int argc, char *argv[]) {
   return 0;
 }
 
-void init_monitor(int argc, char *argv[]) {
+void init_monitor(int argc, char *argv[]) {                                       //初始化monitor
   /* Perform some global initialization. */
 
   /* Parse arguments. */

@@ -12,7 +12,7 @@ CFLAGS    += -I$(AM_HOME)/am/src/platform/nemu/include
 LDSCRIPTS += $(AM_HOME)/scripts/linker.ld
 LDFLAGS   += --defsym=_pmem_start=0x80000000 --defsym=_entry_offset=0x0
 LDFLAGS   += --gc-sections -e _start
-NEMUFLAGS += -l $(shell dirname $(IMAGE).elf)/nemu-log.txt
+NEMUFLAGS += -l $(shell dirname $(IMAGE).elf)/nemu-log.txt  #此处后缀-b参数进入NEMU的命令行参数的批处理模式，即无c直接运行，也可以在“run”的""内添加
 
 MAINARGS_MAX_LEN = 64
 MAINARGS_PLACEHOLDER = The insert-arg rule in Makefile will insert mainargs here.
@@ -27,8 +27,8 @@ image: image-dep
 	@$(OBJCOPY) -S --set-section-flags .bss=alloc,contents -O binary $(IMAGE).elf $(IMAGE).bin
 
 run: insert-arg
-	$(MAKE) -C $(NEMU_HOME) ISA=$(ISA) run ARGS="$(NEMUFLAGS)" IMG=$(IMAGE).bin
-
+	$(MAKE) -C $(NEMU_HOME) ISA=$(ISA) run ARGS="$(NEMUFLAGS) " IMG=$(IMAGE).bin
+                                                            #|_参数可添加位置
 gdb: insert-arg
 	$(MAKE) -C $(NEMU_HOME) ISA=$(ISA) gdb ARGS="$(NEMUFLAGS)" IMG=$(IMAGE).bin
 

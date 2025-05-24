@@ -59,7 +59,11 @@ void init_disasm() {
 #endif
 }
 
-void disassemble(char *str, int size, uint64_t pc, uint8_t *code, int nbyte) {
+void disassemble(char *str, int size, uint64_t pc, uint8_t *code, int nbyte) {          //反汇编函数
+  assert(code != NULL);
+  assert(nbyte > 0);
+  assert(str != NULL);
+  assert(size > 0);
 	cs_insn *insn;
 	size_t count = cs_disasm_dl(handle, code, nbyte, pc, 0, &insn);
   assert(count == 1);

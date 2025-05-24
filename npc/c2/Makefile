@@ -38,17 +38,24 @@ $(BIN): $(VSRCS) $(CSRCS) $(NVBOARD_ARCHIVE)
 		$(addprefix -CFLAGS , $(CXXFLAGS)) $(addprefix -LDFLAGS , $(LDFLAGS)) \
 		--Mdir $(OBJ_DIR) --exe -o $(abspath $(BIN))
 
-
+#nvboard运行
 run: $(BIN)
 	@$^
 	$(call git_commit, "sim RTL") # DO NOT REMOVE THIS LINE!!!
+#shell运行现实
 sim:
 	$(call git_commit, "sim RTL") # DO NOT REMOVE THIS LINE!!!
-	verilator --cc --trace-fst --exe --build -Wall /home/pz40/ysyx-workbench/npc/qq/csrcn/*.cpp /home/pz40/ysyx-workbench/npc/qq/vsrc/top.v
-	obj_dir/Vtop
+	verilator --cc --trace-fst --exe --build -Wall \
+		--top-module ysyx_25040118_top \
+		--Mdir obj_dir \
+		-CFLAGS "-Iobj_dir" \
+		/home/pz40/ysyx-workbench/npc/c2/csrcn/*.cpp \
+		/home/pz40/ysyx-workbench/npc/c2/vsrc/*.v
+	obj_dir/Vysyx_25040118_top
+#显示波形
 wave:
 	gtkwave waveform.fst
 	
 clean:
-	rm -rf obj_dir
+	rm -rf obj_dir build waveform.fst
 .PHONY:run sim wave clean
