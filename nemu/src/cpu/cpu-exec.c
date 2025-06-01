@@ -17,6 +17,7 @@
 #include <cpu/decode.h>
 #include <cpu/difftest.h>
 #include <locale.h>
+#include <common.h>
 
 /* The assembly code of instructions executed is only output to the screen
  * when the number of instructions executed is less than this value.
@@ -32,7 +33,14 @@ static bool g_print_step = false;
 
 void device_update();
 
-static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
+
+
+extern void itrace_display_inst();                                   //显示指令环形缓冲区内容
+extern void isa_reg_display();                            //显示寄存器状态
+
+
+
+static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {           //跟踪和差分测试
 #ifdef CONFIG_ITRACE_COND
   if (ITRACE_COND) { log_write("%s\n", _this->logbuf); }
 #endif
@@ -43,7 +51,7 @@ static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
 static void exec_once(Decode *s, vaddr_t pc) {                         //执行单条指令，覆盖取址、译码、执行与更新pc的功能
   s->pc = pc;
   s->snpc = pc;
-  isa_exec_once(s);                                                       //取指
+  isa_exec_once(s);                                                       //执行单条指令
   cpu.pc = s->dnpc;
 #ifdef CONFIG_ITRACE
   char *p = s->logbuf;
@@ -65,9 +73,9 @@ static void exec_once(Decode *s, vaddr_t pc) {                         //执行�
   memset(p, ' ', space_len);
   p += space_len;
 
-  void disassemble(char *str, int size, uint64_t pc, uint8_t *code, int nbyte);
+  void disassemble(char *str, int size, uint64_t pc, uint8_t *code, int nbyte);         //反汇编函数
   disassemble(p, s->logbuf + sizeof(s->logbuf) - p,
-      MUXDEF(CONFIG_ISA_x86, s->snpc, s->pc), (uint8_t *)&s->isa.inst, ilen);
+      MUXDEF(CONFIG_ISA_x86, s->snpc, s->pc), (uint8_t *)&s->isa.inst, ilen);         //反汇编指令
 #endif
 }
 
@@ -76,14 +84,16 @@ static void execute(uint64_t n) {                       //执行函数
   s.pc = cpu.pc;                                          // 从当前CPU状态初始化PC
 
   for (;n > 0; n --) {
-    exec_once(&s, s.pc);
+    exec_once(&s, s.pc);                        //执行单条指令，覆盖取址、译码、执行与更新pc的功能
     cpu.pc = s.dnpc;                                                 // 更新PC
 
     g_nr_guest_inst ++;
 
-    trace_and_difftest(&s, s.pc);
+    trace_and_difftest(&s, s.pc);                       //跟踪和差分测试
 
-    if (nemu_state.state != NEMU_RUNNING) break;
+    if (nemu_state.state != NEMU_RUNNING) {
+      break;
+    }
 
     if(check_watchpoints()) {                                          //检查监视点****
       printf("Watchpoint changed at pc=0x%08x\n", s.pc);
@@ -106,9 +116,10 @@ static void statistic() {
   else Log("Finish running in less than 1 us and can not calculate the simulation frequency");
 }
 
-void assert_fail_msg() {
-  isa_reg_display();
-  statistic();
+void assert_fail_msg() {                                        //断言失败时的处理函数
+  isa_reg_display();                                            //显示寄存器状态
+  IFDEF(CONFIG_IRINGBUF,itrace_display_inst());                      //显示指令环形缓冲区内容
+  statistic();                                                    //统计信息
 }
 
 /* Simulate how the CPU works. */

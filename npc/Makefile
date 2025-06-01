@@ -45,8 +45,14 @@ run: $(BIN)
 #shell运行现实
 sim:
 	$(call git_commit, "sim RTL") # DO NOT REMOVE THIS LINE!!!
-	verilator --cc --trace-fst --exe --build -Wall /home/pz40/ysyx-workbench/npc/.../csrcn/*.cpp /home/pz40/ysyx-workbench/npc/.../vsrc/*.v
-	obj_dir/Vtop
+	verilator --cc --trace-fst --exe --build -Wall \
+		--top-module ....top \
+		#指定顶层模块
+		--Mdir obj_dir \
+		-CFLAGS "-Iobj_dir" \
+		/home/pz40/ysyx-workbench/npc/..../csrcn/*.cpp \
+		/home/pz40/ysyx-workbench/npc/..../vsrc/*.v
+	obj_dir/....top
 #显示波形
 wave:
 	gtkwave waveform.fst

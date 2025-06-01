@@ -17,7 +17,7 @@
 
 #include <memory/vaddr.h>
 
-static inline uint32_t inst_fetch(vaddr_t *pc, int len) {//取指令函数
+static inline uint32_t inst_fetch(vaddr_t *pc, int len) {               //读取指令函数，用于itrace（NEMU已经实现了的一个简单的踪迹功能）实现
   uint32_t inst = vaddr_ifetch(*pc, len);
   (*pc) += len;
   return inst;

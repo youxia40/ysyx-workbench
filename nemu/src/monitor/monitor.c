@@ -15,6 +15,8 @@
 
 #include <isa.h>
 #include <memory/paddr.h>
+#include <common.h>
+#include <elf.h>
 
 void init_rand();
 void init_log(const char *log_file);
@@ -67,18 +69,25 @@ static long load_img() {
   return size;
 }
 
+
+char *elf_file = NULL;                                       //ELF文件路径
+void parse_elf(const char *elf_file);                            //声明解析elf文件的函数，位于elf.c文件
+
+
 static int parse_args(int argc, char *argv[]) {                     //解析命令行参数
   const struct option table[] = {
-    {"batch"    , no_argument      , NULL, 'b'},
-    {"log"      , required_argument, NULL, 'l'},
-    {"diff"     , required_argument, NULL, 'd'},
-    {"port"     , required_argument, NULL, 'p'},
+    {"batch"    , no_argument      , NULL, 'b'},                    //设置批处理模式
+    {"log"      , required_argument, NULL, 'l'},                    //设置日志文件
+    {"diff"     , required_argument, NULL, 'd'},                    //设置差异测试的so文件
+    {"port"     , required_argument, NULL, 'p'},                    //设置差异测试的端口号
     {"help"     , no_argument      , NULL, 'h'},
-    {0          , 0                , NULL,  0 },
+    {"elf"      , required_argument, NULL, 'e'},                    //设置elf文件
+    {0          , 0                , NULL,  0 },                    //结束标志
   };
   int o;
-  while ( (o = getopt_long(argc, argv, "-bhl:d:p:", table, NULL)) != -1) {
+  while ( (o = getopt_long(argc, argv, "-bhl:d:p:e:", table, NULL)) != -1) {
     switch (o) {
+      case 'e': elf_file = optarg; break;                         //设置elf文件
       case 'b': sdb_set_batch_mode(); break;                        //设置批处理模式
       case 'p': sscanf(optarg, "%d", &difftest_port); break;              //设置端口号
       case 'l': log_file = optarg; break;                                   //设置日志文件
@@ -90,6 +99,7 @@ static int parse_args(int argc, char *argv[]) {                     //解析命�
         printf("\t-l,--log=FILE           output log to FILE\n");
         printf("\t-d,--diff=REF_SO        run DiffTest with reference REF_SO\n");
         printf("\t-p,--port=PORT          run DiffTest with port PORT\n");
+        printf("\t-e,--elf=FILE           parse the elf file\n");
         printf("\n");
         exit(0);
     }
@@ -97,12 +107,19 @@ static int parse_args(int argc, char *argv[]) {                     //解析命�
   return 0;
 }
 
+
+
 void init_monitor(int argc, char *argv[]) {                                       //初始化monitor
   /* Perform some global initialization. */
 
   /* Parse arguments. */
   parse_args(argc, argv);                                     //解析命令行参数，位于monitor.c
-
+  /* Parse the ELF file if provided. */
+  if (elf_file) {                                                         //用于解析ELF文件
+    parse_elf(elf_file); 
+  } else {
+    printf("No ELF file provided, ftrace disabled\n");
+  }
   /* Set random seed. */
   init_rand();
 

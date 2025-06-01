@@ -68,6 +68,9 @@ config TARGET_AM
   bool "Application on Abstract-Machine (DON'T CHOOSE)"
 endchoice
 
+
+
+
 menu "Build Options"
 choice
   prompt "Compiler"
@@ -124,7 +127,11 @@ config CC_ASAN
   default n
 endmenu
 
-menu "Testing and Debugging"
+
+
+
+
+menu "Testing and Debugging and Tracing"
 
 
 config TRACE
@@ -146,11 +153,30 @@ config ITRACE
   bool "Enable instruction tracer"
   default y
 
+config IRINGBUF
+  depends on ITRACE && TARGET_NATIVE_ELF && ENGINE_INTERPRETER
+  bool "Use ring buffer for instruction trace(IRINGBUF)"
+  default y
+  
 config ITRACE_COND
   depends on ITRACE
   string "Only trace instructions when the condition is true"
   default "true"
 
+config MTRACE
+    bool "Enable memory access tracing (MTRACE)"
+    depends on TRACE && HAS_SYMBOL && DEVICE_MMIO            #HAS_SYMBOL符号支持
+    default n
+    help
+        Requires TRACE framework and symbol support.
+
+config MTRACE_BUF_SIZE
+    int "mtrace buffer size (entries)"
+    depends on MTRACE
+    default 1024
+    range 64 65536
+    help
+        Buffer size for memory trace entries.
 
 config DIFFTEST
   depends on TARGET_NATIVE_ELF
@@ -197,6 +223,9 @@ if MODE_SYSTEM
 source "src/memory/Kconfig"
 source "src/device/Kconfig"
 endif
+
+
+
 
 
 menu "Miscellaneous"

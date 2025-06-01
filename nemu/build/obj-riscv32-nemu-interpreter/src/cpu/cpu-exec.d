@@ -9,6 +9,7 @@ deps_/home/pz40/ysyx-workbench/nemu/build/obj-riscv32-nemu-interpreter/src/cpu/c
     $(wildcard include/config/isa/x86.h) \
     $(wildcard include/config/device.h) \
     $(wildcard include/config/target/am.h) \
+    $(wildcard include/config/iringbuf.h) \
   /home/pz40/ysyx-workbench/nemu/include/cpu/cpu.h \
   /home/pz40/ysyx-workbench/nemu/include/common.h \
     $(wildcard include/config/mbase.h) \
