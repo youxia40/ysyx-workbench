@@ -9,7 +9,7 @@
 extern "C" {
 #endif
 
-//#define __NATIVE_USE_KLIB__
+#define __NATIVE_USE_KLIB__//定义__NATIVE_USE_KLIB__以启用KLIB的原生实现，把库函数链接到klib.。如果不定义这个宏, 库函数将会链接到glibc, 可以作为正确的参考实现来进行对比.
 
 //usual.h
 

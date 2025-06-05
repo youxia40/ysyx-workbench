@@ -114,12 +114,14 @@ void init_monitor(int argc, char *argv[]) {                                     
 
   /* Parse arguments. */
   parse_args(argc, argv);                                     //解析命令行参数，位于monitor.c
+
   /* Parse the ELF file if provided. */
   if (elf_file) {                                                         //用于解析ELF文件
     parse_elf(elf_file); 
   } else {
     printf("No ELF file provided, ftrace disabled\n");
   }
+  
   /* Set random seed. */
   init_rand();
 

@@ -8,145 +8,200 @@
 #if !defined(__ISA_NATIVE__) || defined(__NATIVE_USE_KLIB__)
 
 // ======================== 辅助函数 ========================
-static void reverse(char *str, int len) {
-    for (int i = 0; i < len / 2; i++) {
-        char tmp = str[i];
-        str[i] = str[len - i - 1];
-        str[len - i - 1] = tmp;
+static void reverse(char *str, size_t len) {
+    size_t start = 0;
+    size_t end = len - 1;
+    while (start < end) {
+        char tmp = str[start];
+        str[start] = str[end];
+        str[end] = tmp;
+        start++;
+        end--;
     }
 }
 
-static int itoa(int value, char *buf, int base, int sign) {
-    if (base < 2 || base > 36) return 0;
-
+// 整数转字符串 (安全版本)
+static int safe_itoa(long value, char *buf, size_t buf_size, int base, int sign) {
+    if (buf_size < 1) return -1;
+    if (base < 2 || base > 36) return -1;
+    
+    size_t i = 0;
     int is_negative = 0;
-    char *ptr = buf;
-
-    // 处理 value = 0 的特殊情况
-    if (value == 0) {
-        *ptr++ = '0';
-        *ptr = '\0';
-        return 1; // 返回长度1
-    }
-
-    if (sign && base == 10 && value < 0) {
+    
+    // 处理符号
+    if (sign && value < 0) {
         is_negative = 1;
         value = -value;
     }
-
-    while (value != 0) {
-        int digit = value % base;
-        *ptr++ = (digit < 10) ? '0' + digit : 'a' + digit - 10;
+    
+    // 处理 0 的情况
+    if (value == 0) {
+        if (buf_size < 2) return -1;
+        buf[0] = '0';
+        buf[1] = '\0';
+        return 1;
+    }
+    
+    // 转换为字符串 (逆序)
+    while (value != 0 && i < buf_size - 1) {
+        long digit = value % base;
+        buf[i++] = (digit < 10) ? '0' + digit : 'a' + digit - 10;
         value /= base;
     }
-
-    if (is_negative) *ptr++ = '-';
-    *ptr = '\0';
-    reverse(buf, ptr - buf);
-    return ptr - buf;
+    
+    // 添加符号
+    if (is_negative && i < buf_size - 1) {
+        buf[i++] = '-';
+    }
+    
+    // 添加结束符
+    if (i >= buf_size - 1) {
+        // 缓冲区不足
+        return -1;
+    }
+    buf[i] = '\0';
+    
+    // 反转字符串
+    reverse(buf, i);
+    
+    return i;
 }
 
-static int utoa(unsigned int value, char *buf, int base) {
-    if (base < 2 || base > 36) return 0;
-
-    char *ptr = buf;
-
-    // 处理 value = 0 的特殊情况
+// 无符号整数转字符串 (安全版本)
+static int safe_utoa(unsigned long value, char *buf, size_t buf_size, int base) {
+    if (buf_size < 1) return -1;
+    if (base < 2 || base > 36) return -1;
+    
+    size_t i = 0;
+    
+    // 处理 0 的情况
     if (value == 0) {
-        *ptr++ = '0';
-        *ptr = '\0';
-        return 1; // 返回长度1
+        if (buf_size < 2) return -1;
+        buf[0] = '0';
+        buf[1] = '\0';
+        return 1;
     }
-
-    while (value != 0) {
-        unsigned int digit = value % base;
-        *ptr++ = (digit < 10) ? '0' + digit : 'a' + digit - 10;
+    
+    // 转换为字符串 (逆序)
+    while (value != 0 && i < buf_size - 1) {
+        unsigned long digit = value % base;
+        buf[i++] = (digit < 10) ? '0' + digit : 'a' + digit - 10;
         value /= base;
     }
-
-    *ptr = '\0';
-    reverse(buf, ptr - buf);
-    return ptr - buf;
+    
+    // 添加结束符
+    if (i >= buf_size - 1) {
+        // 缓冲区不足
+        return -1;
+    }
+    buf[i] = '\0';
+    
+    // 反转字符串
+    reverse(buf, i);
+    
+    return i;
 }
 
 // ======================== 核心格式化函数 ========================
 static int vsnprintf_internal(char *buf, size_t size, const char *fmt, va_list ap) {
-    char *start = buf;
-    const char *end = (size == 0) ? (char*)(SIZE_MAX) : (buf + size);
-
-    while (*fmt && buf < end) {
+    size_t pos = 0;
+    
+    while (*fmt && pos < size) {
         if (*fmt != '%') {
-            *buf++ = *fmt++;
+            buf[pos++] = *fmt++;
             continue;
         }
-
+        
         fmt++; // 跳过 '%'
-        switch (*fmt) {
+        if (*fmt == '\0') break;
+        
+        char specifier = *fmt++;
+        
+        switch (specifier) {
             case 's': {
                 char *s = va_arg(ap, char*);
                 if (!s) s = "(null)";
-                size_t len = 0;
-                while (s[len] && buf + len < end) len++;
-                memcpy(buf, s, len);
-                buf += len;
+                
+                // 安全复制字符串
+                size_t len = strnlen(s, size - pos - 1);
+                strncpy(buf + pos, s, len);
+                pos += len;
                 break;
             }
             case 'd':
             case 'i': {
                 int num = va_arg(ap, int);
                 char num_buf[32];
-                int len = itoa(num, num_buf, 10, 1);
-                if (buf + len >= end) len = end - buf;
-                memcpy(buf, num_buf, len);
-                buf += len;
+                int len = safe_itoa(num, num_buf, sizeof(num_buf), 10, 1);
+                if (len > 0) {
+                    size_t to_copy = len;
+                    if (pos + to_copy > size - 1) {
+                        to_copy = size - pos - 1;
+                    }
+                    strncpy(buf + pos, num_buf, to_copy);
+                    pos += to_copy;
+                }
                 break;
             }
             case 'u': {
                 unsigned int num = va_arg(ap, unsigned int);
                 char num_buf[32];
-                int len = utoa(num, num_buf, 10);
-                if (buf + len >= end) len = end - buf;
-                memcpy(buf, num_buf, len);
-                buf += len;
+                int len = safe_utoa(num, num_buf, sizeof(num_buf), 10);
+                if (len > 0) {
+                    size_t to_copy = len;
+                    if (pos + to_copy > size - 1) {
+                        to_copy = size - pos - 1;
+                    }
+                    strncpy(buf + pos, num_buf, to_copy);
+                    pos += to_copy;
+                }
                 break;
             }
             case 'x':
             case 'X': {
                 unsigned int num = va_arg(ap, unsigned int);
                 char num_buf[32];
-                int len = utoa(num, num_buf, 16);
-                if (buf + len >= end) len = end - buf;
-                memcpy(buf, num_buf, len);
-                buf += len;
+                int len = safe_utoa(num, num_buf, sizeof(num_buf), 16);
+                if (len > 0) {
+                    size_t to_copy = len;
+                    if (pos + to_copy > size - 1) {
+                        to_copy = size - pos - 1;
+                    }
+                    strncpy(buf + pos, num_buf, to_copy);
+                    pos += to_copy;
+                }
                 break;
             }
             case 'c': {
                 char c = (char)va_arg(ap, int);
-                if (buf < end) *buf++ = c;
+                if (pos < size - 1) {
+                    buf[pos++] = c;
+                }
                 break;
             }
             case '%': {
-                if (buf < end) *buf++ = '%';
+                if (pos < size - 1) {
+                    buf[pos++] = '%';
+                }
                 break;
             }
             default: {
-                if (buf < end) *buf++ = '%';
-                if (buf < end) *buf++ = *fmt;
+                // 忽略不支持的格式化符号
                 break;
             }
         }
-        fmt++;
     }
-
+    
     // 安全终止缓冲区
     if (size > 0) {
-        if (buf < end) {
-            *buf = '\0';
+        if (pos < size) {
+            buf[pos] = '\0';
         } else {
-            start[size - 1] = '\0';                     // 缓冲区满时强制截断
+            buf[size - 1] = '\0';
         }
     }
-    return buf - start;
+    
+    return pos;
 }
 
 // ======================== 标准函数接口 ========================
@@ -175,9 +230,12 @@ int snprintf(char *str, size_t size, const char *format, ...) {
 }
 
 int vprintf(const char *format, va_list ap) {
-    char buf[1024];
+    // 简化实现
+    char buf[512];
     int len = vsnprintf_internal(buf, sizeof(buf), format, ap);
-    for (int i = 0; i < len; i++) putch(buf[i]);
+    for (int i = 0; i < len && buf[i] != '\0'; i++) {
+        putch(buf[i]);
+    }
     return len;
 }
 
