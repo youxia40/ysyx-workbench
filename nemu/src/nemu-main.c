@@ -17,7 +17,7 @@
 
 void init_monitor(int, char *[]);
 void am_init_monitor();
-void engine_start();
+void engine_start();                                        //用于启动引擎
 int is_exit_status_bad();
 
 int main(int argc, char *argv[]) {
