@@ -12,7 +12,7 @@ CFLAGS    += -I$(AM_HOME)/am/src/platform/nemu/include
 LDSCRIPTS += $(AM_HOME)/scripts/linker.ld
 LDFLAGS   += --defsym=_pmem_start=0x80000000 --defsym=_entry_offset=0x0
 LDFLAGS   += --gc-sections -e _start
-NEMUFLAGS += -l $(shell dirname $(IMAGE).elf)/nemu-log.txt  #此处后缀-b参数进入NEMU的命令行参数的批处理模式，即无c直接运行，也可以在“run”的""内添加
+NEMUFLAGS += -l $(shell dirname $(IMAGE).elf)/nemu-log.txt -b #此处后缀-b参数进入NEMU的命令行参数的批处理模式，即无c直接运行，也可以在“run”的""内添加
 NEMUFLAGS += -e $(IMAGE).elf                                                #用于NEMU的命令行参数，-e后面跟的是要运行的程序
 
 MAINARGS_MAX_LEN = 64
