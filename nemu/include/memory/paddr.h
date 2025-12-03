@@ -18,9 +18,9 @@
 
 #include <common.h>
 
-#define PMEM_LEFT  ((paddr_t)CONFIG_MBASE)
-#define PMEM_RIGHT ((paddr_t)CONFIG_MBASE + CONFIG_MSIZE - 1)
-#define RESET_VECTOR (PMEM_LEFT + CONFIG_PC_RESET_OFFSET)
+#define PMEM_LEFT  ((paddr_t)CONFIG_MBASE)                                                       //物理内存的起始地址
+#define PMEM_RIGHT ((paddr_t)CONFIG_MBASE + CONFIG_MSIZE - 1)                                       //物理内存的范围
+#define RESET_VECTOR (PMEM_LEFT + CONFIG_PC_RESET_OFFSET)                                         //程序的入口地址
 
 /* convert the guest physical address in the guest program to host virtual address in NEMU */
 uint8_t* guest_to_host(paddr_t paddr);                          //将物理地址转换为虚拟地址

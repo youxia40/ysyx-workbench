@@ -1,62 +1,80 @@
-TOPNAME = top
-NXDC_FILES = constr/top.nxdc
-INC_PATH ?=
-
-VERILATOR = verilator
-VERILATOR_CFLAGS += -MMD --build -cc  \
-				-O3 --x-assign fast --x-initial fast --noassert
-
+# NPC Makefile
+TOPNAME = ysyx_25040118_top
 BUILD_DIR = ./build
 OBJ_DIR = $(BUILD_DIR)/obj_dir
-BIN = $(BUILD_DIR)/$(TOPNAME)
+NPC_BIN = $(BUILD_DIR)/$(TOPNAME)
+WAVEFORM_FILE = $(BUILD_DIR)/waveform.fst
 
-default: $(BIN)
+# 获取项目根目录绝对路径
+PROJECT_HOME = $(abspath .)
+INCLUDE_DIR = $(PROJECT_HOME)/include
+VSRC_DIR = $(PROJECT_HOME)/vsrc
+CSRC_DIR = $(PROJECT_HOME)/csrc
 
-$(shell mkdir -p $(BUILD_DIR))
+# LLVM配置
+LLVM_PREFIX ?= $(shell llvm-config --prefix 2>/dev/null || echo /usr/lib/llvm-14)
+LLVM_INCLUDEDIR = $(LLVM_PREFIX)/include
+LLVM_LIBDIR = $(LLVM_PREFIX)/lib
+LLVM_VERSION = $(shell llvm-config --version 2>/dev/null || echo 14)
 
-# constraint file
-SRC_AUTO_BIND = $(abspath $(BUILD_DIR)/auto_bind.cpp)
-$(SRC_AUTO_BIND): $(NXDC_FILES)
-	python3 $(NVBOARD_HOME)/scripts/auto_pin_bind.py $^ $@
+LLVM_LDFLAGS = $(shell llvm-config --ldflags --libs 2>/dev/null)
+ifeq ($(LLVM_LDFLAGS),)
+LLVM_LDFLAGS = -L$(LLVM_LIBDIR) -lLLVMCore -lLLVMSupport -lLLVMBitReader -lLLVMBitWriter -lLLVMIRReader
+endif
 
-# project source
-VSRCS = $(shell find $(abspath ./vsrc) -name "*.v")
-CSRCS = $(shell find $(abspath ./csrc) -name "*.c" -or -name "*.cc" -or -name "*.cpp")
-CSRCS += $(SRC_AUTO_BIND)
+# C++编译配置
+CXX = ccache g++
+CXXFLAGS = -std=c++14 -O2 -faligned-new -fcf-protection=none \
+           -I$(LLVM_INCLUDEDIR) \
+           -I$(INCLUDE_DIR) \
+           -Wno-deprecated-declarations -Wno-unknown-pragmas
 
-# rules for NVBoard
-include $(NVBOARD_HOME)/scripts/nvboard.mk
+# 链接选项
+LDFLAGS = $(LLVM_LDFLAGS) \
+          -lreadline -lhistory -lncurses \
+          -lz -lpthread -lm -ldl
 
-# rules for verilator
-INCFLAGS = $(addprefix -I, $(INC_PATH))
-CXXFLAGS += $(INCFLAGS) -DTOP_NAME="\"V$(TOPNAME)\""
+# 源文件（使用绝对路径）
+VSRCS = $(wildcard $(VSRC_DIR)/*.v)
+CSRCS = $(wildcard $(CSRC_DIR)/*.cpp)
 
-$(BIN): $(VSRCS) $(CSRCS) $(NVBOARD_ARCHIVE)
-	@rm -rf $(OBJ_DIR)
-	$(VERILATOR) $(VERILATOR_CFLAGS) \
-		--top-module $(TOPNAME) $^ \
-		$(addprefix -CFLAGS , $(CXXFLAGS)) $(addprefix -LDFLAGS , $(LDFLAGS)) \
-		--Mdir $(OBJ_DIR) --exe -o $(abspath $(BIN))
+# Verilator配置
+VERILATOR = verilator
+VERILATOR_FLAGS = --cc --trace-fst --exe --build -sv \
+                -Wno-UNUSEDSIGNAL -Wno-SYNCASYNCNET -Wno-PINCONNECTEMPTY \
+                -Wno-WIDTHTRUNC -Wno-PINMISSING -Wno-IMPLICIT -Wno-UNDRIVEN \
+                -Wno-VARHIDDEN -Wno-WIDTHEXPAND -Wno-CASEOVERLAP -Wno-CASEX \
+                --top-module $(TOPNAME) \
+                --LDFLAGS "$(LDFLAGS)"
 
-#nvboard运行
-run: $(BIN)
-	@$^
-	$(call git_commit, "sim RTL") # DO NOT REMOVE THIS LINE!!!
-#shell运行现实
-sim:
-	$(call git_commit, "sim RTL") # DO NOT REMOVE THIS LINE!!!
-	verilator --cc --trace-fst --exe --build -Wall \
-		--top-module ....top \
-		#指定顶层模块
-		--Mdir obj_dir \
-		-CFLAGS "-Iobj_dir" \
-		/home/pz40/ysyx-workbench/npc/..../csrcn/*.cpp \
-		/home/pz40/ysyx-workbench/npc/..../vsrc/*.v
-	obj_dir/....top
-#显示波形
-wave:
-	gtkwave waveform.fst
-	
+# 默认目标
+default: $(NPC_BIN)
+	@echo "NPC仿真器构建完成: $(NPC_BIN)"
+
+$(shell mkdir -p $(BUILD_DIR) $(OBJ_DIR))
+
+# 构建NPC仿真器
+$(NPC_BIN): $(VSRCS) $(CSRCS)
+	@echo "开始编译，中间文件目录: $(OBJ_DIR)"
+	$(VERILATOR) $(VERILATOR_FLAGS) \
+		--Mdir $(OBJ_DIR) \
+		-CFLAGS "$(CXXFLAGS)" \
+		$(VSRCS) $(CSRCS) \
+		--exe -o $(abspath $(NPC_BIN))
+	@echo "可执行文件位置: $(NPC_BIN)"
+
+# 运行仿真
+run: $(NPC_BIN)
+	@echo "运行NPC仿真器: ARGS=$(ARGS) IMG=$(IMG)"
+	@$(NPC_BIN) $(ARGS) $(IMG)
+
+# 查看波形
+wave: $(WAVEFORM_FILE)
+	gtkwave $(WAVEFORM_FILE)
+
+# 清理
 clean:
-	rm -rf obj_dir build waveform.fst
-.PHONY:run sim wave clean
+	rm -rf $(BUILD_DIR)
+	rm -f waveform.fst
+
+.PHONY: default run wave clean

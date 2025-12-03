@@ -47,7 +47,7 @@ static char *diff_so_file = NULL;
 static char *img_file = NULL;
 static int difftest_port = 1234;
 
-static long load_img() {
+static long load_img() {                                                          //加载镜像文件，镜像文件是一个二进制文件，包含了程序的代码和数据
   if (img_file == NULL) {
     Log("No image is given. Use the default build-in image.");
     return 4096; // built-in image size
@@ -62,7 +62,7 @@ static long load_img() {
   Log("The image is %s, size = %ld", img_file, size);
 
   fseek(fp, 0, SEEK_SET);
-  int ret = fread(guest_to_host(RESET_VECTOR), size, 1, fp);
+  int ret = fread(guest_to_host(RESET_VECTOR), size, 1, fp);                      //将镜像文件加载到内存中，RESET_VECTOR是程序的入口地址
   assert(ret == 1);
 
   fclose(fp);
@@ -132,13 +132,13 @@ void init_monitor(int argc, char *argv[]) {                                     
   init_mem();                                               //生成内存（位于paddr.c文件）
 
   /* Initialize devices. */
-  IFDEF(CONFIG_DEVICE, init_device());
+  IFDEF(CONFIG_DEVICE, init_device());                          //初始化设备，位于device.c文件
 
   /* Perform ISA dependent initialization. */
   init_isa();                                                    //初始化ISA                     
 
   /* Load the image to memory. This will overwrite the built-in image. */
-  long img_size = load_img();
+  long img_size = load_img();                                           //指定加载镜像文件，位于monitor.c
 
   /* Initialize differential testing. */
   init_difftest(diff_so_file, img_size, difftest_port);
@@ -146,7 +146,7 @@ void init_monitor(int argc, char *argv[]) {                                     
   /* Initialize the simple debugger. */
   init_sdb();
 
-  IFDEF(CONFIG_ITRACE, init_disasm());
+  IFDEF(CONFIG_ITRACE, init_disasm());                          //初始化反汇编器，位于disasm.c文件
 
   /* Display welcome message. */
   welcome();

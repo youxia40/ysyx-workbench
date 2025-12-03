@@ -1,3 +1,4 @@
+# npc.mk
 AM_SRCS := riscv/npc/start.S \
            riscv/npc/trm.c \
            riscv/npc/ioe.c \
@@ -9,23 +10,65 @@ AM_SRCS := riscv/npc/start.S \
            platform/dummy/mpe.c
 
 CFLAGS    += -fdata-sections -ffunction-sections
+CFLAGS    += -I$(AM_HOME)/am/src/platform/npc/include
 LDSCRIPTS += $(AM_HOME)/scripts/linker.ld
 LDFLAGS   += --defsym=_pmem_start=0x80000000 --defsym=_entry_offset=0x0
 LDFLAGS   += --gc-sections -e _start
 
-MAINARGS_MAX_LEN = 64
-MAINARGS_PLACEHOLDER = The insert-arg rule in Makefile will insert mainargs here.
-CFLAGS += -DMAINARGS_MAX_LEN=$(MAINARGS_MAX_LEN) -DMAINARGS_PLACEHOLDER=\""$(MAINARGS_PLACEHOLDER)"\"
+# NPC参数配置
+NPCFLAGS += -l $(abspath $(shell dirname $(IMAGE).elf))/npc-log.txt
+NPCFLAGS += -b  # 批处理模式
 
+# 跳过参数插入步骤
 insert-arg: image
-	@python $(AM_HOME)/tools/insert-arg.py $(IMAGE).bin $(MAINARGS_MAX_LEN) "$(MAINARGS_PLACEHOLDER)" "$(mainargs)"
+	@echo "Skipping argument insertion for NPC"
 
 image: image-dep
 	@$(OBJDUMP) -d $(IMAGE).elf > $(IMAGE).txt
 	@echo + OBJCOPY "->" $(IMAGE_REL).bin
 	@$(OBJCOPY) -S --set-section-flags .bss=alloc,contents -O binary $(IMAGE).elf $(IMAGE).bin
 
-run: insert-arg
-	echo "TODO: add command here to run simulation"
+run: image
+	@echo "===== NPC Simulation Start ====="
+	@echo "Loading program: $(notdir $(IMAGE).elf)"
+	@echo "ELF file path: $(abspath $(IMAGE).elf)"
+	@echo "BIN file path: $(abspath $(IMAGE).bin)"
+	@echo "Entry point: 0x80000000"
+	@echo "Memory range: [0x80000000, 0x87ffffff]"
+	@echo "Batch mode: ENABLED"
+	@echo "NPC executable: $(NPC_HOME)/build/ysyx_25040118_top"
+	@echo "NPC flags: $(NPCFLAGS) $(abspath $(IMAGE).elf)"
+	@echo "Current directory: $(shell pwd)"
+	@echo "================================"
+	
+	#检查NPC模拟器存在
+	@if [ ! -f "$(NPC_HOME)/build/ysyx_25040118_top" ]; then \
+		echo "ERROR: NPC simulator not found at $(NPC_HOME)/build/ysyx_25040118_top"; \
+		echo "Please build the NPC simulator first"; \
+		exit 1; \
+	fi
+	
+	#检查ELF文件存在
+	@if [ ! -f "$(abspath $(IMAGE).elf)" ]; then \
+		echo "ERROR: ELF file not found at $(abspath $(IMAGE).elf)"; \
+		echo "Files in build directory:"; \
+		ls -la $(shell dirname $(abspath $(IMAGE).elf)) || true; \
+		echo "Please check the build process"; \
+		exit 1; \
+	fi
+	
+	#调用NPC模拟器运行程序
+	$(NPC_HOME)/build/ysyx_25040118_top $(NPCFLAGS) $(abspath $(IMAGE).elf)
+	
+	# 检查退出码
+	@if [ $$? -eq 0 ]; then \
+		echo "NPC simulation succeeded"; \
+		echo "===== NPC Simulation End ====="; \
+		exit 0; \
+	else \
+		echo "NPC simulation failed with exit code $$?"; \
+		echo "===== NPC Simulation End ====="; \
+		exit 1; \
+	fi
 
 .PHONY: insert-arg

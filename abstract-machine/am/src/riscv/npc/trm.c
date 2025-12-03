@@ -15,6 +15,11 @@ void putch(char ch) {
 }
 
 void halt(int code) {
+  // 通过内联汇编插入 ebreak 指令
+  asm volatile("ebreak");
+  
+  // 可选：传递退出码给仿真环境
+  asm volatile("mv a0, %0" : : "r"(code));
   while (1);
 }
 
