@@ -22,7 +22,9 @@
 #include <llvm/MC/MCRegisterInfo.h>
 #include <llvm/MC/MCTargetOptions.h>
 
-// 使用 llvm_ctx 避免与 NPCContext 冲突
+
+
+//使用llvm_ctx避免与NPCContext冲突
 static llvm::MCDisassembler*  disas      = nullptr;
 static llvm::MCInstPrinter*   printer    = nullptr;
 static llvm::MCContext*       llvm_ctx   = nullptr;
@@ -31,8 +33,11 @@ static llvm::MCAsmInfo*       asm_info   = nullptr;
 static llvm::MCInstrInfo*     instr_info = nullptr;
 static llvm::MCRegisterInfo*  reg_info   = nullptr;
 
+
+
 //环形缓冲区长度
 static const int IRINGBUF_SIZE = 16;
+
 
 struct ItraceRecord {
   uint32_t    pc;
@@ -41,12 +46,14 @@ struct ItraceRecord {
 };
 
 static ItraceRecord iringbuf[IRINGBUF_SIZE];
-static int  iring_head = 0;   // 下一个写入的位置
+static int  iring_head = 0;                                //下一个写入位置
 static bool iring_full = false;
 
-// 初始化指令追踪（LLVM 反汇编）
+
+
+//初始化
 void itrace_init(NPCContext* ctx) {
-  (void)ctx; // 目前没用到 ctx
+  (void)ctx;                                  //ctx：统一接口
 
   llvm::InitializeAllTargetInfos();
   llvm::InitializeAllTargetMCs();
@@ -85,7 +92,9 @@ void itrace_init(NPCContext* ctx) {
          IRINGBUF_SIZE);
 }
 
-// 反汇编一条指令，得到字符串（不打印）
+
+
+//每反汇编一条指令，得到字符串
 static bool disassemble_to_string(uint64_t pc, uint32_t inst, std::string &out) {
   if (!disas || !printer) return false;
 
@@ -103,14 +112,17 @@ static bool disassemble_to_string(uint64_t pc, uint32_t inst, std::string &out) 
   return true;
 }
 
-// 保留这个接口（如果以后需要实时打印单条可以用）
+
+//单独反汇编并打印
 void itrace_disassemble(uint64_t pc, uint32_t inst) {
   std::string asm_str;
   if (!disassemble_to_string(pc, inst, asm_str)) return;
   printf("[itrace] 0x%08lx: %s\n", (unsigned long)pc, asm_str.c_str());
 }
 
-// 每条指令后调用：只负责往 iringbuf 里塞记录
+
+
+//往环形缓冲区里记录
 void itrace_step(NPCContext* ctx) {
   if (!ctx->debug.itrace_enabled) return;
   if (!disas || !printer) return;
@@ -118,7 +130,7 @@ void itrace_step(NPCContext* ctx) {
   uint32_t pc   = ctx->pc;
   uint32_t inst = ctx->inst;
 
-  // 简单过滤非法指令占位
+  //过滤非法指令占位
   if (inst == 0xFFFFFFFFu) {
     return;
   }
@@ -139,7 +151,8 @@ void itrace_step(NPCContext* ctx) {
   }
 }
 
-// 在测试失败等情况下调用：按讲义风格打印 iringbuf
+
+//失败下用
 void itrace_dump_iringbuf(void) {
   if (!disas || !printer) return;
 
@@ -149,7 +162,8 @@ void itrace_dump_iringbuf(void) {
     return;
   }
 
-  // 最后一条是“最近执行”的指令，我们假定它是出错指令，用 --> 标记
+
+
   int last_idx;
   if (iring_full) {
     last_idx = (iring_head + IRINGBUF_SIZE - 1) % IRINGBUF_SIZE;
@@ -165,7 +179,9 @@ void itrace_dump_iringbuf(void) {
     const ItraceRecord &rec = iringbuf[idx];
 
     uint32_t inst = rec.inst;
-    // 按讲义示例，以“高位到低位”的顺序打印 4 个字节
+
+
+    //从高到低位4个字节
     uint8_t b3 = (inst >> 24) & 0xff;
     uint8_t b2 = (inst >> 16) & 0xff;
     uint8_t b1 = (inst >>  8) & 0xff;
@@ -173,7 +189,8 @@ void itrace_dump_iringbuf(void) {
 
     const char *mark = (idx == last_idx) ? "-->" : "   ";
 
-    // 参考讲义排版：PC、反汇编、然后是 4 个字节
+
+    
     printf("%s 0x%08x: %-32s  %02x %02x %02x %02x\n",
            mark,
            rec.pc,

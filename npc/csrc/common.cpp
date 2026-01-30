@@ -1,6 +1,6 @@
 #include "common.h"
 
-// 定义全局上下文
+//定义全局上下文
 NPCContext npc_ctx = {
     .pc = 0,
     .inst = 0,

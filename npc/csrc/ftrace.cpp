@@ -22,10 +22,14 @@ struct FuncSym {
 
 static std::vector<FuncSym> funcs;
 
-// 限制输出总行数
+
+
+//限制输出总行数
 static uint32_t ftrace_line_count = 0;
 
-// 从 ELF 符号表加载函数符号
+
+
+//从ELF符号表加载函数符号
 static void load_symbols(const char *path) {
   if (!path || path[0] == '\0') return;
 
@@ -117,16 +121,20 @@ static const FuncSym *find_by_pc(uint32_t addr) {
   return nullptr;
 }
 
-// 初始化函数追踪（解析符号表）
+
+
+//初始化函数追踪（解析符号表）
 void ftrace_init(NPCContext* ctx) {
   if (!ctx) return;
   load_symbols(ctx->elf_path);
-  ftrace_line_count = 0;  // 重置输出计数
+  ftrace_line_count = 0;                                       //重置输出计数
 }
 
 // 被 npc_ftrace_log 调用，记录一次 CALL / RET
 void ftrace_log(uint64_t pc, uint64_t target_pc, int is_call) {
-  // 超过最大行数后不再输出
+
+
+  //超过最大行数后不再输出
 #ifdef FTRACE_MAX_LINES
   if (ftrace_line_count >= FTRACE_MAX_LINES) return;
 #endif
@@ -157,12 +165,14 @@ void ftrace_log(uint64_t pc, uint64_t target_pc, int is_call) {
   ftrace_line_count++;
 }
 
-// 每拍 hook（保持空）
+
+
+//每步调用一次，用于检测CALL/RET指令
 void ftrace_step(NPCContext* ctx) {
   (void)ctx;
 }
 
-#else  // NPC_ENABLE_FTRACE == 0
+#else  //NPC_ENABLE_FTRACE == 0
 
 void ftrace_init(NPCContext* ctx)                 { (void)ctx; }
 void ftrace_log(uint64_t pc, uint64_t target_pc, int is_call)

@@ -22,7 +22,7 @@ typedef void (*ref_regcpy_t)(void *dut, bool direction);
 typedef void (*ref_exec_t)(uint64_t n);
 typedef void (*ref_raise_intr_t)(uint64_t NO);
 
-// Shared library handle and function pointers
+//保存动态库句柄和函数指针
 static void *ref_handle          = nullptr;
 static ref_init_t       ref_init = nullptr;
 static ref_memcpy_t     ref_memcpy = nullptr;
@@ -30,14 +30,14 @@ static ref_regcpy_t     ref_regcpy = nullptr;
 static ref_exec_t       ref_exec = nullptr;
 static ref_raise_intr_t ref_raise_intr = nullptr;
 
-// A CPU state compatible with NEMU's riscv32_CPU_state:
-// 32 GPRs + PC
+//CPU状态结构体
+//32 GPRs + PC
 typedef struct {
     uint32_t gpr[32];
     uint32_t pc;
 } DifftestCPUState;
 
-// Collect DUT(NPC) state into DifftestCPUState
+//从NPC上下文收集CPU状态到DifftestCPUState结构体
 static void npc_collect_cpu_state(DifftestCPUState *st, NPCContext *ctx) {
     uint32_t gpr16[16] = {0};
     npc_get_regs(gpr16);  // get 16 RV32E registers from NPC
@@ -52,7 +52,7 @@ static void npc_collect_cpu_state(DifftestCPUState *st, NPCContext *ctx) {
     st->pc = ctx->pc;  // NPC's PC after the current instruction
 }
 
-// Try multiple paths to open NEMU so
+//尝试打开NEMU共享库，返回
 static void* try_open_so(const char **used_path) {
     void *handle = nullptr;
     const char *env_path = getenv("NEMU_SHARED_LIB");
@@ -88,7 +88,7 @@ static void* try_open_so(const char **used_path) {
     return nullptr;
 }
 
-// Initialize difftest: load NEMU so, sync memory and registers
+//初始化difftest
 void difftest_init(NPCContext* ctx) {
     if (!ctx->debug.difftest_enabled) {
         return;
@@ -110,7 +110,7 @@ void difftest_init(NPCContext* ctx) {
                 "  ../../nemu/build/riscv32-nemu-interpreter-so\n"
                 "  ../../../nemu/build/riscv32-nemu-interpreter-so\n",
                 cwd ? cwd : "(unknown)");
-        // Do not continue with a half-enabled difftest
+
         exit(1);
     }
 
@@ -129,56 +129,56 @@ void difftest_init(NPCContext* ctx) {
 
     printf("DiffTest: using NEMU so: %s\n", used_path ? used_path : "(env)");
 
-    // Initialize REF (NEMU)
+    //初始化NEMU difftest
     ref_init(0);
 
-    // Sync initial memory:
-    // For simplicity, copy first 2MB from MEM_BASE to NEMU.
-    const uint32_t img_sync_size = 2 * 1024 * 1024; // 2MB
+    //把NPC内存镜像拷贝到NEMU
+    //同步
+    const uint32_t img_sync_size = 2 * 1024 * 1024;                         //2MB
     for (uint32_t off = 0; off < img_sync_size; off += 4) {
         // npc_pmem_read uses physical offset (virt - MEM_BASE)
         uint32_t word = npc_pmem_read((int)off);
         ref_memcpy(MEM_BASE + off, &word, 4, DIFFTEST_TO_REF);
     }
 
-    // Sync initial registers + PC to REF.
-    // NOTE: At this moment ctx->pc is still 0, so we must use ctx->entry.
+    //初始化CPU寄存器状态
+    //32 GPRs + PC
     DifftestCPUState cpu_init{};
     for (int i = 0; i < 32; i++) {
-        cpu_init.gpr[i] = 0;      // all GPRs start from 0
+        cpu_init.gpr[i] = 0;                                    //NPC的未实现寄存器初始化为0
     }
-    cpu_init.pc = ctx->entry;     // initial PC = program entry (e.g. 0x80000000)
+    cpu_init.pc = ctx->entry;                                                       //入口地址
 
     ref_regcpy(&cpu_init, DIFFTEST_TO_REF);
 
     printf("DiffTest initialized successfully\n");
 }
 
-// Single-step difftest
+//执行一步difftest并比较状态
 void difftest_step(NPCContext* ctx) {
     if (!ctx->debug.difftest_enabled) return;
     if (!ref_handle) return;
 
-    // REF state BEFORE executing this step:
-    // This PC is the instruction address we are going to execute now.
+    //捕捉当前指令引起的状态变化，先保存执行前的状态
+    //定位问题指令
     DifftestCPUState ref_before{};
     ref_regcpy(&ref_before, DIFFTEST_TO_DUT);
 
-    // Let REF execute one instruction to catch up with DUT
+    //执行一条
     ref_exec(1);
 
-    // REF state AFTER this instruction
+    //执行后
     DifftestCPUState ref_after{};
     ref_regcpy(&ref_after, DIFFTEST_TO_DUT);
 
-    // DUT state AFTER this instruction
+    //获取NPC当前状态
     DifftestCPUState dut_after{};
     npc_collect_cpu_state(&dut_after, ctx);
 
-    // The instruction that likely caused a mismatch has this PC
+    //指令PC
     uint32_t instr_pc = ref_before.pc;
 
-    // First compare PC after executing the instruction
+    //比较PC
     if (ref_after.pc != dut_after.pc) {
         printf("[DiffTest] PC mismatch at instruction PC = 0x%08x\n", instr_pc);
         printf("           Next PC after this instruction: DUT=0x%08x, REF=0x%08x\n",
@@ -192,7 +192,7 @@ void difftest_step(NPCContext* ctx) {
         return;
     }
 
-    // Then compare 16 RV32E registers x0..x15
+    //比较寄存器
     for (int i = 0; i < 16; i++) {
         if (ref_after.gpr[i] != dut_after.gpr[i]) {
             printf("[DiffTest] Register mismatch at instruction PC = 0x%08x\n",

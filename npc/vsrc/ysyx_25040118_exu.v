@@ -64,46 +64,43 @@ module ysyx_25040118_exu (
         end
 
         if (!stop && (is_jal || is_jalr || is_branch)) begin
-            // $display("[EXU] Jump/Branch: PC=0x%08x -> 0x%08x", pc, next_pc);
+            
+            //$display("[EXU] Jump/Branch: PC=0x%08x -> 0x%08x", pc, next_pc);
         end
     end
+
 
     //ftrace在jal时调用
     always @(*) begin
         if (stop) begin
+
             //停机不记录
         end
         else begin
-            // 约定：
-            //   jal  rd, off      且 rd != x0  -> CALL
-            //   jalr rd, rs1, 0   且 rd==x0 && rs1==x1 -> RET
-            //   jalr rd, rs1, imm 且 rd!=x0   -> 间接 CALL
+
+
+            //识别CALL和RET指令
+            //jal  rd, off      且 rd != x0                     ->CALL
+            //jalr rd, rs1, 0   且 rd==x0 && rs1==x1            ->RET
+            //jalr rd, rs1, imm 且 rd!=x0                       ->CALL
 
             if (is_jal) begin
                 if (rd != 5'd0) begin
-                    npc_ftrace_log(
-                        {32'b0, pc},
-                        {32'b0, jal_target},
-                        1  // is_call
-                    );
+                    npc_ftrace_log({32'b0, pc},{32'b0, jal_target},1);  // is_call
                 end
             end
+
             else if (is_jalr) begin
                 if (rd == 5'd0 && rs1 == 5'd1 && imm == 32'd0) begin
-                    // ret: jalr x0, x1, 0
-                    npc_ftrace_log(
-                        {32'b0, pc},
-                        64'd0,
-                        0  // is_call = 0 -> RET
-                    );
+
+                    //ret:jalr x0, x1, 0
+                    npc_ftrace_log({32'b0, pc},64'd0,0);
                 end
+
                 else if (rd != 5'd0) begin
-                    // 其他 jalr 带 rd，当作 call（函数指针等）
-                    npc_ftrace_log(
-                        {32'b0, pc},
-                        {32'b0, jalr_target},
-                        1  // CALL
-                    );
+
+                    //其他jalr带 rd，当作call（函数指针等）
+                    npc_ftrace_log({32'b0, pc},{32'b0, jalr_target},1);                   //CALL
                 end
             end
         end
@@ -117,7 +114,8 @@ module ysyx_25040118_exu (
 
     wire [31:0] phys_addr = virt_addr - VIRT_MEM_BASE;
 
-    // 组合逻辑：生成 load/store 地址、写数据和写掩码
+
+    //生成l/s地址、写数据和写掩码
     always @(*) begin
         mem_we    = 1'b0;
         virt_addr = 32'b0;
@@ -130,9 +128,9 @@ module ysyx_25040118_exu (
             mem_wdata = src2;
 
             case (inst[14:12])
-                3'b000: mem_wmask = 4'b0001; // sb
-                3'b001: mem_wmask = 4'b0011; // sh
-                3'b010: mem_wmask = 4'b1111; // sw
+                3'b000: mem_wmask = 4'b0001;            // sb
+                3'b001: mem_wmask = 4'b0011;            // sh
+                3'b010: mem_wmask = 4'b1111;                // sw
                 default: mem_wmask = 4'b0000;
             endcase
         end
@@ -141,7 +139,8 @@ module ysyx_25040118_exu (
         end
     end
 
-    // 组合逻辑：只在 load 时触发物理内存读
+
+    //只在load时触发物理内存读
     always @(*) begin
         if (is_load) begin
             mem_rdata = npc_pmem_read(phys_addr);
@@ -150,26 +149,28 @@ module ysyx_25040118_exu (
         end
     end
 
-    // 时序逻辑：store 写回
+    //在时钟上升沿进行存储
     always @(posedge clk) begin
         if (mem_we) begin
             npc_pmem_write(phys_addr, mem_wdata, mem_wmask);
             if (!stop) begin
-                // $display("[MEM] Write: VADDR=0x%08x DATA=0x%08x", virt_addr, mem_wdata);
+
+                //$display("[MEM] Write: VADDR=0x%08x DATA=0x%08x", virt_addr, mem_wdata);
             end
         end
     end
 
-    // ===== ALU 计算 =====
+
+
     wire [31:0] alu_op2 = is_alu_imm ? imm : src2;
 
     always @(*) begin
         if (is_load) begin
-            // load 数据扩展
+
             case (inst[14:12])
-                3'b000: result = $signed(mem_rdata[7:0]);   // lb
+                3'b000: result = $signed(mem_rdata[7:0]);    // lb
                 3'b001: result = $signed(mem_rdata[15:0]);  // lh
-                3'b010: result = mem_rdata;                 // lw
+                3'b010: result = mem_rdata;                   // lw
                 3'b100: result = mem_rdata[7:0];            // lbu
                 3'b101: result = mem_rdata[15:0];           // lhu
                 default: result = 32'b0;
@@ -186,37 +187,39 @@ module ysyx_25040118_exu (
         end
         else begin
             case (alu_ctrl)
-                5'b00000: result = src1 + alu_op2;                          //add/addi
+                5'b00000: result = src1 + alu_op2;                           //add/addi
                 5'b10000: result = src1 - alu_op2;                          //sub
-                5'b00001: result = src1 << alu_op2[4:0];                    //sll/slli
-                5'b00101: result = src1 >> alu_op2[4:0];                    //srl/srli
+                5'b00001: result = src1 << alu_op2[4:0];                     //sll/slli
+                5'b00101: result = src1 >> alu_op2[4:0];                     //srl/srli
                 5'b00110: result = $signed(src1) >>> alu_op2[4:0];          //sra/srai
                 5'b00010: result = ($signed(src1) <  $signed(alu_op2)) ? 32'd1 : 32'd0; //slt/slti
-                5'b00011: result = (src1 < alu_op2) ? 32'd1 : 32'd0;        //sltu/sltiu
-                5'b00100: result = src1 ^ alu_op2;                          //xor/xori
+                5'b00011: result = (src1 < alu_op2) ? 32'd1 : 32'd0;         //sltu/sltiu
+                5'b00100: result = src1 ^ alu_op2;                              //xor/xori
                 5'b00111: result = src1 | alu_op2;                          //or/ori
-                5'b01000: result = src1 & alu_op2;                          //and/andi
-                5'b01010: result = pc + imm;                                //auipc
+                5'b01000: result = src1 & alu_op2;                              //and/andi
+                5'b01010: result = pc + imm;                                 //auipc
                 default: result = 32'b0;
             endcase
         end
 
         if (!stop && !is_load && !is_store) begin
-            // $display("[EXU] ALU: PC=0x%08x, RESULT=0x%08x", pc, result);
+            //$display("[EXU] ALU: PC=0x%08x, RESULT=0x%08x", pc, result);
         end
     end
 
-    // ebreak -> 通过 DPI 通知区分GOOD/BAD TRAP
+
+
+    //ebreak通过DPI区分GOOD/BAD TRAP
     always @(posedge clk) begin
         if (ebreak && !stop) begin
             npc_ebreak(pc);
-            // $display("[EXU] EBREAK at PC=0x%08x", pc);
+            //$display("[EXU] EBREAK at PC=0x%08x", pc);
         end
     end
 
     always @(*) begin
         if (is_load && !stop) begin
-            // $display("[MEM] Read : VADDR=0x%08x DATA=0x%08x", virt_addr, mem_rdata);
+            //$display("[MEM] Read : VADDR=0x%08x DATA=0x%08x", virt_addr, mem_rdata);
         end
     end
 endmodule

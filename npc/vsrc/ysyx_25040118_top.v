@@ -5,7 +5,8 @@ module ysyx_25040118_top (
     output [31:0] inst_out,
     output reg    stop
 );
-    // 内部信号
+
+
     wire [31:0] ifu_pc;
     wire [31:0] ifu_inst;
     wire [31:0] exu_next_pc;
@@ -30,10 +31,12 @@ module ysyx_25040118_top (
     wire [31:0] regfile_rdata2;
     wire [31:0] exu_result;
 
-    // 寄存器写使能信号
+
+    //寄存器写使能
     wire reg_wen = (|idu_rd) && !idu_is_store && !idu_is_branch && !idu_is_system;
 
-    // IFU
+
+
     ysyx_25040118_ifu ifu_module (
         .clk    (clk),
         .rst    (rst),
@@ -43,7 +46,7 @@ module ysyx_25040118_top (
         .inst   (ifu_inst)
     );
 
-    // IDU
+
     ysyx_25040118_idu idu_module (
         .clk       (clk),
         .rst       (rst),
@@ -67,7 +70,7 @@ module ysyx_25040118_top (
         .is_alu_imm(idu_is_alu_imm)
     );
 
-    // 寄存器堆
+
     ysyx_25040118_regfile regfile_module (
         .clk   (clk),
         .rst   (rst),
@@ -81,7 +84,7 @@ module ysyx_25040118_top (
         .rdata2(regfile_rdata2)
     );
 
-    // EXU
+
     ysyx_25040118_exu exu_module (
         .clk      (clk),
         .rst      (rst),
@@ -106,11 +109,11 @@ module ysyx_25040118_top (
         .ebreak   (idu_ebreak)
     );
 
-    // 输出端口
+    //输出端口
     assign pc_out   = ifu_pc;
     assign inst_out = ifu_inst;
 
-    // 简单死循环检测（PC 长时间不变）
+    //死循环检测（PC如果长时间不变）
     reg [31:0] last_pc;
     reg [31:0] same_pc_count;
 

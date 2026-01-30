@@ -8,7 +8,8 @@
 
 static VerilatedFstC* tfp = nullptr;
 
-// 初始化波形
+
+//初始化
 void wave_init(Vysyx_25040118_top* top) {
     Verilated::traceEverOn(true);
     tfp = new VerilatedFstC;
@@ -16,14 +17,18 @@ void wave_init(Vysyx_25040118_top* top) {
     tfp->open("wave.fst");
 }
 
-// 转储波形
+
+
+//转储波形
 void wave_dump(uint64_t time) {
     if (tfp) {
         tfp->dump(time);
     }
 }
 
-// 关闭波形
+
+
+//关闭波形
 void wave_close() {
     if (tfp) {
         tfp->close();

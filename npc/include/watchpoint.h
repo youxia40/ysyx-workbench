@@ -1,28 +1,25 @@
 #ifndef WATCHPOINT_H
 #define WATCHPOINT_H
 
-#include "common.h"
+#include <cstdint>
 
-// 监视点结构
-typedef struct {
-    int id;
-    char expr[128];
-    uint32_t value;
-} Watchpoint;
+//初始化监视点池
+void wp_init();
 
-// 初始化监视点池
-void init_watchpoints();
 
-// 添加新监视点
-Watchpoint* new_watchpoint();
+//建监视点
+void wp_new(const char *expr);
 
-// 删除监视点
-void free_watchpoint(int id);
 
-// 列出所有监视点
-void list_watchpoints();
+//删除监视点
+void wp_del(int id);
 
-// 检查监视点
-bool check_watchpoints();
+
+//列出所有监视点
+void wp_list();
+
+
+//检查监视点是否触发，有变化返回则true
+bool wp_check();
 
 #endif
