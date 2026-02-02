@@ -25,23 +25,23 @@ static void __am_net_config (AM_NET_CONFIG_T *cfg)    { cfg->present = false; }
 
 typedef void (*handler_t)(void *buf);
 static void *lut[128] = {
-  [AM_TIMER_CONFIG] = __am_timer_config,
-  [AM_TIMER_RTC   ] = __am_timer_rtc,
-  [AM_TIMER_UPTIME] = __am_timer_uptime,
-  [AM_INPUT_CONFIG] = __am_input_config,
-  [AM_INPUT_KEYBRD] = __am_input_keybrd,
-  [AM_GPU_CONFIG  ] = __am_gpu_config,
-  [AM_GPU_FBDRAW  ] = __am_gpu_fbdraw,
-  [AM_GPU_STATUS  ] = __am_gpu_status,
-  [AM_UART_CONFIG ] = __am_uart_config,
-  [AM_AUDIO_CONFIG] = __am_audio_config,
-  [AM_AUDIO_CTRL  ] = __am_audio_ctrl,
-  [AM_AUDIO_STATUS] = __am_audio_status,
-  [AM_AUDIO_PLAY  ] = __am_audio_play,
-  [AM_DISK_CONFIG ] = __am_disk_config,
-  [AM_DISK_STATUS ] = __am_disk_status,
-  [AM_DISK_BLKIO  ] = __am_disk_blkio,
-  [AM_NET_CONFIG  ] = __am_net_config,
+  [AM_TIMER_CONFIG] = __am_timer_config,//定时器配置
+  [AM_TIMER_RTC   ] = __am_timer_rtc,//实时时钟
+  [AM_TIMER_UPTIME] = __am_timer_uptime,//定时器相关
+  [AM_INPUT_CONFIG] = __am_input_config,//输入设备配置
+  [AM_INPUT_KEYBRD] = __am_input_keybrd,//键盘输入
+  [AM_GPU_CONFIG  ] = __am_gpu_config,//图形处理单元配置
+  [AM_GPU_FBDRAW  ] = __am_gpu_fbdraw,//帧缓冲区绘制
+  [AM_GPU_STATUS  ] = __am_gpu_status,//图形处理单元状态
+  [AM_UART_CONFIG ] = __am_uart_config,//串口配置
+  [AM_AUDIO_CONFIG] = __am_audio_config,//音频配置
+  [AM_AUDIO_CTRL  ] = __am_audio_ctrl,//音频控制
+  [AM_AUDIO_STATUS] = __am_audio_status,//音频状态
+  [AM_AUDIO_PLAY  ] = __am_audio_play,//音频播放
+  [AM_DISK_CONFIG ] = __am_disk_config,//磁盘配置
+  [AM_DISK_STATUS ] = __am_disk_status,//磁盘状态
+  [AM_DISK_BLKIO  ] = __am_disk_blkio,//磁盘块输入输出
+  [AM_NET_CONFIG  ] = __am_net_config,//网络配置
 };
 
 static void fail(void *buf) { panic("access nonexist register"); }

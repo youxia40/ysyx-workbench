@@ -5,6 +5,7 @@ OBJ_DIR = $(BUILD_DIR)/obj_dir
 NPC_BIN = $(BUILD_DIR)/$(TOPNAME)
 
 PROJECT_HOME = $(abspath .)
+#当前所在目录的绝对路径
 INCLUDE_DIR = $(PROJECT_HOME)/include
 VSRC_DIR = $(PROJECT_HOME)/vsrc
 CSRC_DIR = $(PROJECT_HOME)/csrc
@@ -14,36 +15,42 @@ LLVM_INCLUDEDIR = $(LLVM_PREFIX)/include
 LLVM_LIBDIR = $(LLVM_PREFIX)/lib
 LLVM_VERSION = $(shell llvm-config --version 2>/dev/null || echo 14)
 
-LLVM_LDFLAGS = $(shell llvm-config --ldflags --libs 2>/dev/null)
+LLVM_LDFLAGS = $(shell llvm-config --ldflags --libs core support irreader bitreader bitwriter)
 ifeq ($(LLVM_LDFLAGS),)
 LLVM_LDFLAGS = -L$(LLVM_LIBDIR) -lLLVMCore -lLLVMSupport -lLLVMBitReader -lLLVMBitWriter -lLLVMIRReader
 endif
 
-CXX = ccache g++
+CXX = ccache g++#使用ccache加速重复编译
 CXXFLAGS = -std=c++14 -O2 -faligned-new -fcf-protection=none \
-           -I$(LLVM_INCLUDEDIR) \
-           -I$(INCLUDE_DIR) \
-           -Wno-deprecated-declarations -Wno-unknown-pragmas
+			-I$(LLVM_INCLUDEDIR) \
+			-I$(INCLUDE_DIR) \
+        	-Wno-deprecated-declarations -Wno-unknown-pragmas
+#-O2优化;-faligned-new:支持对齐new（LLVM/Verilator需要）;-fcf-protection=none：关掉CET（否则某些机器链接报错）
+#-Wno:忽略LLVM/Verilator的历史遗留warning
 
+#链接LLVM需要的库
 LDFLAGS = $(LLVM_LDFLAGS) \
-          -lreadline -lhistory -lncurses \
-          -lz -lpthread -lm -ldl
+			-lreadline -lhistory -lncurses \
+			-lz -lpthread -lm
+#zlib:LLVM依赖;pthread:多线程;m/dl:Linux 标配
 
 VSRCS = $(wildcard $(VSRC_DIR)/*.v)
 CSRCS = $(wildcard $(CSRC_DIR)/*.cpp)
 
 VERILATOR = verilator
-VERILATOR_FLAGS = --cc --trace-fst --exe --build -sv \
+VERILATOR_FLAGS = --cc --trace-fst --build -sv \
                 -Wno-UNUSEDSIGNAL -Wno-SYNCASYNCNET -Wno-PINCONNECTEMPTY \
                 -Wno-WIDTHTRUNC -Wno-PINMISSING -Wno-IMPLICIT -Wno-UNDRIVEN \
                 -Wno-VARHIDDEN -Wno-WIDTHEXPAND -Wno-CASEOVERLAP -Wno-CASEX \
                 --top-module $(TOPNAME) \
                 --LDFLAGS "$(LDFLAGS)"
+#把最终链接参数传给g++
 
 default: $(NPC_BIN)
 	@echo "NPC built: $(NPC_BIN)"
 
 $(shell mkdir -p $(BUILD_DIR) $(OBJ_DIR))
+#创建构建目录和对象目录
 
 $(NPC_BIN): $(VSRCS) $(CSRCS)
 	@echo "build dir: $(OBJ_DIR)"

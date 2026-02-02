@@ -23,10 +23,13 @@ NPCFLAGS += -b  # 批处理模式
 insert-arg: image
 	@echo "Skipping argument insertion for NPC"
 
+#objdump静态反汇编和objcopy生成二进制文件
 image: image-dep
 	@$(OBJDUMP) -d $(IMAGE).elf > $(IMAGE).txt
 	@echo + OBJCOPY "->" $(IMAGE_REL).bin
 	@$(OBJCOPY) -S --set-section-flags .bss=alloc,contents -O binary $(IMAGE).elf $(IMAGE).bin
+#-O binary：输出格式是raw binary（裸数据）;-S：strip 掉符号/调试信息（减小体积）对.bin来说本来也不需要符号表
+
 
 run: image
 	@echo "===== NPC Simulation Start ====="

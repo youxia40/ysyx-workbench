@@ -68,7 +68,7 @@
 #define __IGNORE(...)
 #define __KEEP(...) __VA_ARGS__
 // keep the code if a boolean macro is defined
-#define IFDEF(macro, ...) MUXDEF(macro, __KEEP, __IGNORE)(__VA_ARGS__)                      //如果宏定义了,则保留代码,否则忽略代码
+#define IFDEF(macro, ...) MUXDEF(macro, __KEEP, __IGNORE)(__VA_ARGS__)  //如果宏定义了,则保留代码,否则忽略代码
 // keep the code if a boolean macro is undefined
 #define IFNDEF(macro, ...) MUXNDEF(macro, __KEEP, __IGNORE)(__VA_ARGS__)
 // keep the code if a boolean macro is defined to 1
