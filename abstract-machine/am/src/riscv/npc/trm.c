@@ -17,10 +17,10 @@ void putch(char ch) {
 //putch是AM/klib里常见的输出接口（例如printf最终可能会调用putch输出字符）
 
 void halt(int code) {
-  // 可选：传递退出码给仿真环境
+  //传递退出码给仿真环境
   asm volatile("mv a0, %0" : : "r"(code));
   
-  // 通过内联汇编插入 ebreak 指令
+  //通过内联汇编插入 ebreak 指令
   asm volatile("ebreak");
   
   while (1);

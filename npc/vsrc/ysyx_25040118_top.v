@@ -105,9 +105,26 @@ module ysyx_25040118_top (
         .is_lui   (idu_is_lui),
         .is_alu_imm(idu_is_alu_imm),
         .result   (exu_result),
+        .lsu_load_data(lsu_load_data),
         .next_pc  (exu_next_pc),
         .ebreak   (idu_ebreak)
     );
+
+    wire [31:0] lsu_load_data;
+    ysyx_25040118_lsu lsu_module (
+        .clk      (clk),
+        .rst      (rst),
+        .stop     (stop),
+        .inst     (ifu_inst),
+        .src1     (regfile_rdata1),
+        .src2     (regfile_rdata2),
+        .imm      (idu_imm),
+        .is_load  (idu_is_load),
+        .is_store (idu_is_store),
+        .load_data(lsu_load_data)
+    );
+
+
 
     //输出端口
     assign pc_out   = ifu_pc;
