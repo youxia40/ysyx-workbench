@@ -1,4 +1,4 @@
-module ysyx_25040118_Reg #(WIDTH = 1, RESET_VAL = 0) (
+module ysyx_25040118_Reg #(WIDTH = 1, RESET_VAL = 0) (//寄存器
     input clk,
     input rst,
     input [WIDTH-1:0] din,
@@ -11,7 +11,7 @@ module ysyx_25040118_Reg #(WIDTH = 1, RESET_VAL = 0) (
     end
 endmodule
 
-module ysyx_25040118_MuxKey #(NR_KEY = 2, KEY_LEN = 1, DATA_LEN = 1) (
+module ysyx_25040118_MuxKey #(NR_KEY = 2, KEY_LEN = 1, DATA_LEN = 1) (//无默认值的选择器
     output [DATA_LEN-1:0] out,
     input [KEY_LEN-1:0] key,
     input [NR_KEY*(KEY_LEN + DATA_LEN)-1:0] lut
@@ -19,7 +19,7 @@ module ysyx_25040118_MuxKey #(NR_KEY = 2, KEY_LEN = 1, DATA_LEN = 1) (
     ysyx_25040118_MuxKeyInternal #(NR_KEY, KEY_LEN, DATA_LEN, 0) i0 (out, key, {DATA_LEN{1'b0}}, lut);
 endmodule
 
-module ysyx_25040118_MuxKeyWithDefault #(NR_KEY = 2, KEY_LEN = 1, DATA_LEN = 1) (
+module ysyx_25040118_MuxKeyWithDefault #(NR_KEY = 2, KEY_LEN = 1, DATA_LEN = 1) (//有默认值的选择器
     output [DATA_LEN-1:0] out,
     input [KEY_LEN-1:0] key,
     input [DATA_LEN-1:0] default_out,
@@ -28,7 +28,7 @@ module ysyx_25040118_MuxKeyWithDefault #(NR_KEY = 2, KEY_LEN = 1, DATA_LEN = 1) 
     ysyx_25040118_MuxKeyInternal #(NR_KEY, KEY_LEN, DATA_LEN, 1) i0 (out, key, default_out, lut);
 endmodule
 
-module ysyx_25040118_MuxKeyInternal #(NR_KEY = 2, KEY_LEN = 1, DATA_LEN = 1, HAS_DEFAULT = 0) (
+module ysyx_25040118_MuxKeyInternal #(NR_KEY = 2, KEY_LEN = 1, DATA_LEN = 1, HAS_DEFAULT = 0) (//选择器内部实现
     output reg [DATA_LEN-1:0] out,
     input [KEY_LEN-1:0] key,
     input [DATA_LEN-1:0] default_out,

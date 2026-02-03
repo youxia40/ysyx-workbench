@@ -22,7 +22,8 @@ module ysyx_25040118_exu (
     input         ebreak
 );
     parameter VIRT_MEM_BASE = 32'h80000000;
-
+    
+    `ifndef SYNTHESIS
     import "DPI-C" function int  npc_pmem_read (input int raddr);
     import "DPI-C" function void npc_pmem_write(input int waddr, input int wdata, input byte wmask);
     import "DPI-C" function void npc_ebreak    (input int pc);
@@ -32,6 +33,8 @@ module ysyx_25040118_exu (
         input longint unsigned target_pc,
         input int              is_call
     );
+    `endif
+
 
     //提前解码rd/rs1，方便判断call / ret
     wire [4:0] rd  = inst[11:7];
@@ -65,7 +68,7 @@ module ysyx_25040118_exu (
 
         if (!stop && (is_jal || is_jalr || is_branch)) begin
             
-            //$display("[EXU] Jump/Branch: PC=0x%08x -> 0x%08x", pc, next_pc);
+            //$strobe("[EXU] Jump/Branch: PC=0x%08x -> 0x%08x", pc, next_pc);
         end
     end
 
@@ -86,21 +89,25 @@ module ysyx_25040118_exu (
 
             if (is_jal) begin
                 if (rd != 5'd0) begin
+                    `ifndef SYNTHESIS
                     npc_ftrace_log({32'b0, pc},{32'b0, jal_target},1);  // is_call
+                    `endif
                 end
             end
 
             else if (is_jalr) begin
                 if (rd == 5'd0 && rs1 == 5'd1 && imm == 32'd0) begin
-
+                    `ifndef SYNTHESIS
                     //ret:jalr x0, x1, 0
                     npc_ftrace_log({32'b0, pc},64'd0,0);
+                    `endif
                 end
 
                 else if (rd != 5'd0) begin
-
+                    `ifndef SYNTHESIS
                     //其他jalr带 rd，当作call（函数指针等）
                     npc_ftrace_log({32'b0, pc},{32'b0, jalr_target},1);                   //CALL
+                    `endif
                 end
             end
         end
@@ -143,7 +150,9 @@ module ysyx_25040118_exu (
     //只在load时触发物理内存读
     always @(*) begin
         if (is_load) begin
+            `ifndef SYNTHESIS
             mem_rdata = npc_pmem_read(phys_addr);
+            `endif
         end else begin
             mem_rdata = 32'b0;
         end
@@ -152,10 +161,12 @@ module ysyx_25040118_exu (
     //在时钟上升沿进行存储
     always @(posedge clk) begin
         if (mem_we) begin
+            `ifndef SYNTHESIS
             npc_pmem_write(phys_addr, mem_wdata, mem_wmask);
+            `endif
             if (!stop) begin
 
-                //$display("[MEM] Write: VADDR=0x%08x DATA=0x%08x", virt_addr, mem_wdata);
+                //$strobe("[MEM] Write: VADDR=0x%08x DATA=0x%08x", virt_addr, mem_wdata);
             end
         end
     end
@@ -203,7 +214,7 @@ module ysyx_25040118_exu (
         end
 
         if (!stop && !is_load && !is_store) begin
-            //$display("[EXU] ALU: PC=0x%08x, RESULT=0x%08x", pc, result);
+            //$strobe("[EXU] ALU: PC=0x%08x, RESULT=0x%08x", pc, result);
         end
     end
 
@@ -212,8 +223,10 @@ module ysyx_25040118_exu (
     //ebreak通过DPI区分GOOD/BAD TRAP
     always @(posedge clk) begin
         if (ebreak && !stop) begin
+            `ifndef SYNTHESIS
             npc_ebreak(pc);
-            //$display("[EXU] EBREAK at PC=0x%08x", pc);
+            `endif
+            //$strobe("[EXU] EBREAK at PC=0x%08x", pc);
         end
     end
 

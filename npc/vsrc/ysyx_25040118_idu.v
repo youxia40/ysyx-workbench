@@ -241,7 +241,7 @@ module ysyx_25040118_idu (
 
 
         if (!stop && inst !== 32'h00000013) begin
-            //$display("[IDU] PC=0x%08x, INST=0x%08x", pc, inst);
+            //$strobe("[IDU] PC=0x%08x, INST=0x%08x", pc, inst);
         end
     end
 endmodule

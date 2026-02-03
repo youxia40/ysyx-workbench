@@ -128,7 +128,7 @@ module ysyx_25040118_top (
                 same_pc_count <= same_pc_count + 1;
                 if (same_pc_count > 100) begin
                     stop <= 1'b1;
-                    $display("[TOP] Deadloop detected at PC=0x%08x", ifu_pc);
+                    //$strobe("[TOP] Deadloop detected at PC=0x%08x", ifu_pc);
                 end
             end
             else begin

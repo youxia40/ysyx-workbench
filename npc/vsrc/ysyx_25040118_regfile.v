@@ -12,7 +12,10 @@ module ysyx_25040118_regfile (
 );
 
     //每次写寄存器时把寄存器值同步到 npc_ctx.debug.regs中
+    `ifndef SYNTHESIS
     import "DPI-C" function void npc_set_reg(input int idx, input int value);
+    `endif
+
 
     logic [31:0] rf [0:15];
 
@@ -27,13 +30,17 @@ module ysyx_25040118_regfile (
             if (waddr < 16) begin
                 rf[waddr] <= wdata;
 
+
+                `ifndef SYNTHESIS
                 //同步到调试上下文（给sdb/expr/difftest和GOOD/BAD TRAP用）
                 npc_set_reg(waddr, wdata);
+                `endif
+
 
                 //只在非停止状态和非零值时输出调试信息
                 if (!stop && wdata != 0) begin
 
-                    //$display("[REGFILE] Write: x%0d = 0x%08x", waddr, wdata);
+                    //$strobe("[REGFILE] Write: x%0d = 0x%08x", waddr, wdata);
                 end
             end
         end
