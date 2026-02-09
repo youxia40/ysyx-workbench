@@ -10,7 +10,7 @@
 
 
 
-#define NPC_ENABLE_SDB      1
+#define NPC_ENABLE_SDB      1 
 #define NPC_ENABLE_DIFFTEST 0
 #define NPC_ENABLE_ITRACE   0                       //最好结合difftest使用,cpu执行了哪条指令
 #define NPC_ENABLE_MTRACE   0                       //访问了哪写地址，读写了什么数据

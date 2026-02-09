@@ -165,7 +165,7 @@ config ITRACE_COND
 
 config MTRACE
     bool "Enable memory access tracing (MTRACE)"
-    depends on TRACE && HAS_SYMBOL && DEVICE_MMIO            #HAS_SYMBOL符号支持
+    depends on TRACE && HAS_SYMBOL && DEVICE_MMIO   #HAS_SYMBOL符号支持
     default n
     help
         Requires TRACE framework and symbol support.
@@ -177,6 +177,21 @@ config MTRACE_BUF_SIZE
     range 64 65536
     help
         Buffer size for memory trace entries.
+
+config DTRACE
+    bool "Enable device access tracing (DTRACE)"
+    depends on TRACE && HAS_SYMBOL && DEVICE_MMIO   #HAS_SYMBOL符号支持
+    default n
+    help
+        Requires TRACE framework and symbol support.
+
+config DTRACE_BUF_SIZE
+    int "dtrace buffer size (entries)"
+    depends on DTRACE
+    default 1024
+    range 64 65536
+    help
+        Buffer size for device trace entries.
 
 config DIFFTEST
   depends on TARGET_NATIVE_ELF

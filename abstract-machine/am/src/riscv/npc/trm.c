@@ -1,6 +1,13 @@
 #include <am.h>
 #include <klib-macros.h>
 
+/*
+最简单的计算机称为"图灵机":
+  结构上, TRM有存储器, 有PC, 有寄存器, 有加法器;
+  工作方式上, TRM不断地重复以下过程: 从PC指示的存储器位置取出指令, 执行指令, 然后更新PC.
+*/
+
+
 extern char _heap_start;
 int main(const char *args);
 
@@ -8,7 +15,7 @@ extern char _pmem_start;
 #define PMEM_SIZE (128 * 1024 * 1024)
 #define PMEM_END  ((uintptr_t)&_pmem_start + PMEM_SIZE)
 
-Area heap = RANGE(&_heap_start, PMEM_END);
+Area heap = RANGE(&_heap_start, PMEM_END);  //用于指示堆区的起始和末尾
 static const char mainargs[MAINARGS_MAX_LEN] = MAINARGS_PLACEHOLDER; // defined in CFLAGS
 //AM把“命令行参数”塞成一个字符串mainargs
 

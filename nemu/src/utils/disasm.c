@@ -23,7 +23,7 @@ static void (*cs_free_dl)(cs_insn *insn, size_t count);
 
 static csh handle;
 
-void init_disasm() {                                                            //初始化反汇编函数
+void init_disasm() {              //初始化反汇编函数
   void *dl_handle;
   dl_handle = dlopen("tools/capstone/repo/libcapstone.so.5", RTLD_LAZY);
   assert(dl_handle);
@@ -71,5 +71,5 @@ void disassemble(char *str, int size, uint64_t pc, uint8_t *code, int nbyte) {  
   if (insn->op_str[0] != '\0') {
     snprintf(str + ret, size - ret, "\t%s", insn->op_str);
   }
-  cs_free_dl(insn, count);                                                      //释放指令结构体
+  cs_free_dl(insn, count);           //释放指令结构体
 }

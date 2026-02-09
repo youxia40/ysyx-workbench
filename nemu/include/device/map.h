@@ -21,7 +21,7 @@
 typedef void(*io_callback_t)(uint32_t, int, bool);
 uint8_t* new_space(int size);
 
-typedef struct {
+typedef struct {  //IO映射结构体
   const char *name;
   // we treat ioaddr_t as paddr_t here
   paddr_t low;
@@ -30,15 +30,15 @@ typedef struct {
   io_callback_t callback;
 } IOMap;
 
-static inline bool map_inside(IOMap *map, paddr_t addr) {
+static inline bool map_inside(IOMap *map, paddr_t addr) {//判断地址addr是否在IO映射map的范围内
   return (addr >= map->low && addr <= map->high);
 }
 
-static inline int find_mapid_by_addr(IOMap *maps, int size, paddr_t addr) {
+static inline int find_mapid_by_addr(IOMap *maps, int size, paddr_t addr) {//根据地址addr查找对应的IO映射id，使得difftest能够跳过IO映射的差分测试
   int i;
   for (i = 0; i < size; i ++) {
     if (map_inside(maps + i, addr)) {
-      difftest_skip_ref();
+      difftest_skip_ref();//跳过ioe的差分测试
       return i;
     }
   }
@@ -50,7 +50,7 @@ void add_pio_map(const char *name, ioaddr_t addr,
 void add_mmio_map(const char *name, paddr_t addr,
         void *space, uint32_t len, io_callback_t callback);
 
-word_t map_read(paddr_t addr, int len, IOMap *map);
-void map_write(paddr_t addr, int len, word_t data, IOMap *map);
+word_t map_read(paddr_t addr, int len, IOMap *map);//从IO映射map中读取数据
+void map_write(paddr_t addr, int len, word_t data, IOMap *map);//从IO映射map中写数据
 
 #endif

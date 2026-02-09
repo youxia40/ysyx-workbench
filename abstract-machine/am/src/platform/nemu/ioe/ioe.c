@@ -1,22 +1,22 @@
 #include <am.h>
 #include <klib-macros.h>
 
-void __am_timer_init();
-void __am_gpu_init();
-void __am_audio_init();
-void __am_input_keybrd(AM_INPUT_KEYBRD_T *);
-void __am_timer_rtc(AM_TIMER_RTC_T *);
-void __am_timer_uptime(AM_TIMER_UPTIME_T *);
-void __am_gpu_config(AM_GPU_CONFIG_T *);
-void __am_gpu_status(AM_GPU_STATUS_T *);
-void __am_gpu_fbdraw(AM_GPU_FBDRAW_T *);
-void __am_audio_config(AM_AUDIO_CONFIG_T *);
-void __am_audio_ctrl(AM_AUDIO_CTRL_T *);
-void __am_audio_status(AM_AUDIO_STATUS_T *);
-void __am_audio_play(AM_AUDIO_PLAY_T *);
-void __am_disk_config(AM_DISK_CONFIG_T *cfg);
-void __am_disk_status(AM_DISK_STATUS_T *stat);
-void __am_disk_blkio(AM_DISK_BLKIO_T *io);
+void __am_timer_init();//定时器初始化
+void __am_gpu_init();//图形处理单元初始化
+void __am_audio_init();//音频初始化
+void __am_input_keybrd(AM_INPUT_KEYBRD_T *);//键盘输入
+void __am_timer_rtc(AM_TIMER_RTC_T *);//实时时钟
+void __am_timer_uptime(AM_TIMER_UPTIME_T *);//定时器相关
+void __am_gpu_config(AM_GPU_CONFIG_T *);//图形处理单元配置
+void __am_gpu_status(AM_GPU_STATUS_T *);//图形处理单元状态
+void __am_gpu_fbdraw(AM_GPU_FBDRAW_T *);//帧缓冲区绘制
+void __am_audio_config(AM_AUDIO_CONFIG_T *);//音频配置
+void __am_audio_ctrl(AM_AUDIO_CTRL_T *);//音频控制
+void __am_audio_status(AM_AUDIO_STATUS_T *);//音频状态
+void __am_audio_play(AM_AUDIO_PLAY_T *);//音频播放
+void __am_disk_config(AM_DISK_CONFIG_T *cfg);//磁盘配置
+void __am_disk_status(AM_DISK_STATUS_T *stat);//磁盘状态
+void __am_disk_blkio(AM_DISK_BLKIO_T *io);//磁盘块输入输出
 
 static void __am_timer_config(AM_TIMER_CONFIG_T *cfg) { cfg->present = true; cfg->has_rtc = true; }
 static void __am_input_config(AM_INPUT_CONFIG_T *cfg) { cfg->present = true;  }
@@ -44,14 +44,14 @@ static void *lut[128] = {
   [AM_NET_CONFIG  ] = __am_net_config,//网络配置
 };
 
-static void fail(void *buf) { panic("access nonexist register"); }
+static void fail(void *buf) { panic("access nonexist register"); }//访问不存在的寄存器时的处理函数
 
 bool ioe_init() {
   for (int i = 0; i < LENGTH(lut); i++)
     if (!lut[i]) lut[i] = fail;
-  __am_gpu_init();
-  __am_timer_init();
-  __am_audio_init();
+  __am_gpu_init();//图形处理单元初始化
+  __am_timer_init();//定时器初始化
+  __am_audio_init();//音频初始化
   return true;
 }
 

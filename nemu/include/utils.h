@@ -25,7 +25,7 @@ enum { NEMU_RUNNING, NEMU_STOP, NEMU_END, NEMU_ABORT, NEMU_QUIT };
 typedef struct {
   int state;
   vaddr_t halt_pc;
-  uint32_t halt_ret;
+  uint32_t halt_ret;        //0: good  1: bad
 } NEMUState;
 
 extern NEMUState nemu_state;

@@ -9,8 +9,8 @@ void __am_timer_config(AM_TIMER_CONFIG_T *cfg) {
 }
 
 void __am_timer_rtc(AM_TIMER_RTC_T *rtc) {
-  time_t t = time(NULL);
-  struct tm *tm = localtime(&t);
+  time_t t = time(NULL);//获取当前时间
+  struct tm *tm = localtime(&t);//将时间转换为本地时间结构体
   rtc->second = tm->tm_sec;
   rtc->minute = tm->tm_min;
   rtc->hour   = tm->tm_hour;
@@ -21,7 +21,7 @@ void __am_timer_rtc(AM_TIMER_RTC_T *rtc) {
 
 void __am_timer_uptime(AM_TIMER_UPTIME_T *uptime) {
   struct timeval now;
-  gettimeofday(&now, NULL);
+  gettimeofday(&now, NULL);//获取当前时间
   long seconds = now.tv_sec - boot_time.tv_sec;
   long useconds = now.tv_usec - boot_time.tv_usec;
   uptime->us = seconds * 1000000 + (useconds + 500);

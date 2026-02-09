@@ -37,7 +37,8 @@ void __am_gpu_init() {
   SDL_AddTimer(1000 / FPS, texture_sync, NULL);
 }
 
-void __am_gpu_config(AM_GPU_CONFIG_T *cfg) {
+void __am_gpu_config(AM_GPU_CONFIG_T *cfg) {//AM显示控制器信息, 可读出屏幕大小信息width和height.
+                                            //另外AM假设系统在运行过程中, 屏幕大小不会发生变化.
   *cfg = (AM_GPU_CONFIG_T) {
     .present = true, .has_accel = false,
     .width = disp_w, .height = disp_h,
@@ -49,7 +50,9 @@ void __am_gpu_status(AM_GPU_STATUS_T *stat) {
   stat->ready = true;
 }
 
-void __am_gpu_fbdraw(AM_GPU_FBDRAW_T *ctl) {
+void __am_gpu_fbdraw(AM_GPU_FBDRAW_T *ctl) {//写入绘图信息向屏幕(x, y)坐标处绘制w*h的矩形图像,
+                                            //图像像素按行优先方式存储在pixels中, 每个像素用32位整数
+                                            //以00RRGGBB的方式描述颜色. 若sync为true, 则马上将帧缓冲中的内容同步到屏幕上.
   int x = ctl->x, y = ctl->y, w = ctl->w, h = ctl->h;
   if (w == 0 || h == 0) return;
   feclearexcept(-1);

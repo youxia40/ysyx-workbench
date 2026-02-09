@@ -1,6 +1,8 @@
 #include <common.h>                             //包含通用的头文件，定义了一些常用的宏和类型
 #include <elf.h>
 #include <generated/autoconf.h>
+#include <device/map.h>
+#include <device/mmio.h>
 
 //---------------------------itrace---------------------------
 
@@ -23,6 +25,8 @@ void itrace_inst(word_t pc, uint32_t inst) {                                 //�
 }
 
 
+//home/pz40/ysyx-workbench/nemu/src/utils/filelist.mk规定，关闭trace功能后，disasm.c不会被编译，但itrace_display_inst仍然会被调用，导致链接错误
+#if defined(CONFIG_ITRACE) || defined(CONFIG_IQUEUE)
 void itrace_display_inst() {                                                               //显示指令环形缓冲区内容
     char line[64];                                                          //用于存储每行输出的字符串
     int error_pos = (cur_inst - 1 + INST_NUM) % INST_NUM;                //错误指令位置,当前指令位置减1, 由于cur_inst是下一个空槽, 所以需要减1来获取最后一条指令的位置
@@ -54,6 +58,11 @@ void itrace_display_inst() {                                                    
         puts(line);
     }
 }
+#else
+void itrace_display_inst() {
+}
+#endif
+
 
 
 //---------------------------mtrace---------------------------
@@ -64,21 +73,21 @@ void itrace_display_inst() {                                                    
 #include <stdio.h>
 #include <stdbool.h>
 
-static bool mtrace_enabled = false;  // 全局开关
+static bool mtrace_enabled = false;  //全局开关
 
-// 启用/禁用追踪
+//启用/禁用追踪
 void mtrace_enable(bool enable) {
     mtrace_enabled = enable;
 }
 
-// 内存读追踪（直接打印）
+//内存读追踪（直接打印）
 void mtrace_read(uint32_t addr, int len) {
     if (mtrace_enabled) {
         printf("[mtrace] READ  0x%08x, len=%d\n", addr, len);
     }
 }
 
-// 内存写追踪（直接打印）
+//内存写追踪（直接打印）
 void mtrace_write(uint32_t addr, int len, uint32_t data) {
     if (mtrace_enabled) {
         printf("[mtrace] WRITE 0x%08x, len=%d, data=0x%08x\n", addr, len, data);
@@ -87,11 +96,78 @@ void mtrace_write(uint32_t addr, int len, uint32_t data) {
 
 #else
 
-// 禁用时生成空函数
-void mtrace_enable(bool enable) { (void)enable; }
-void mtrace_read(uint32_t addr, int len) { (void)addr; (void)len; }
-void mtrace_write(uint32_t addr, int len, uint32_t data) { (void)addr; (void)len; (void)data; }
+//禁用时生成空函数
+void mtrace_enable(bool enable) {
+    (void)enable; 
+}
+void mtrace_read(uint32_t addr, int len) {
+    (void)addr; (void)len; 
+}
+void mtrace_write(uint32_t addr, int len, uint32_t data) {
+    (void)addr; (void)len; (void)data; 
+}
 #endif
+
+
+
+
+//---------------------------dtrace---------------------------
+#ifdef CONFIG_DTRACE
+
+#include <stdio.h>
+#include <stdbool.h>
+
+static bool dtrace_enabled = false;  //全局开关
+
+//启用/禁用追踪
+void dtrace_enable(bool enable) {
+    dtrace_enabled = enable;
+}
+
+
+//内存读追踪(直接打印）
+void dtrace_read(uint32_t addr, int len) {
+    IOMap *map = fetch_mmio_map(addr);
+
+    if (dtrace_enabled) {
+        printf("[dtrace] READ  ")
+        if (map != NULL) {
+            printf("%08s\n", map->name ? map->name : "(null)");
+        }
+        else {
+            printf("%08s\n", "pmem");
+        }
+        printf("0x%08x, len=%d\n", addr, len);
+    }
+}
+
+//内存写追踪（直接打印）
+void dtrace_write(uint32_t addr, int len, uint32_t data) {
+    IOMap *map = fetch_mmio_map(addr);
+
+     if (dtrace_enabled) {
+        printf("[dtrace] WRITE ")
+        if (map != NULL) {
+            printf("%08s\n", map->name ? map->name : "(null)");
+        }
+        else {
+            printf("%08s\n", "pmem");
+        }
+        printf("0x%08x, len=%d, data=0x%08x\n", addr, len, data);
+    }
+}
+
+#else
+
+//禁用时生成空函数
+void dtrace_enable(bool enable) { (void)enable; }
+void dtrace_read(uint32_t addr, int len) { (void)addr; (void)len; }
+void dtrace_write(uint32_t addr, int len, uint32_t data) { (void)addr; (void)len; (void)data; }
+#endif
+
+
+
+
 
 
 //---------------------------ftrace---------------------------

@@ -64,10 +64,13 @@ static uint32_t key_dequeue() {
   return key;
 }
 
-void send_key(uint8_t scancode, bool is_keydown) {
+void send_key(uint8_t scancode, bool is_keydown) {//当有按键事件发生时，send_key函数会被调用，参数scancode表示按键的扫描码，is_keydown表示按键是按下还是释放
   if (nemu_state.state == NEMU_RUNNING && keymap[scancode] != NEMU_KEY_NONE) {
+
+    //将扫描码转换为NEMU的按键码，并根据按键状态设置KEYDOWN_MASK,故最高位为1表示按键按下，其余位表示按键的扫描码；最高位为0表示按键释放，其余位表示按键的扫描码
     uint32_t am_scancode = keymap[scancode] | (is_keydown ? KEYDOWN_MASK : 0);
-    key_enqueue(am_scancode);
+    
+    key_enqueue(am_scancode);//将按键事件加入键盘事件队列
   }
 }
 #else // !CONFIG_TARGET_AM

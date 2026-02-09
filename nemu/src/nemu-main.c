@@ -15,10 +15,10 @@
 
 #include <common.h>
 
-void init_monitor(int, char *[]);
-void am_init_monitor();
-void engine_start();                                        //用于启动引擎
-int is_exit_status_bad();
+void init_monitor(int, char *[]);//初始化调试器，位于monitor.c
+void am_init_monitor();//AM下初始化调试器
+void engine_start();              //用于启动引擎
+int is_exit_status_bad();//判断退出状态是否异常，位于state.c
 
 int main(int argc, char *argv[]) {
   /* Initialize the monitor. */
@@ -29,7 +29,7 @@ int main(int argc, char *argv[]) {
 #endif
 
   /* Start engine. */
-  engine_start();                                         //位于init.c,转入sdb_mainloop();
+  engine_start();              //nemu/src/engine/interpreter/init.c,转入sdb_mainloop();
 
-  return is_exit_status_bad();                                //位于state.c
+  return is_exit_status_bad();                                //位于nemu/src/utils/state.c
 }

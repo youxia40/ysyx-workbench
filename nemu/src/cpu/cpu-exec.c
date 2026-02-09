@@ -35,8 +35,8 @@ void device_update();
 
 
 
-extern void itrace_display_inst();                                   //显示指令环形缓冲区内容
-extern void isa_reg_display();                            //显示寄存器状态
+extern void itrace_display_inst();         //显示指令环形缓冲区内容
+extern void isa_reg_display();                 //显示寄存器状态
 
 
 
@@ -51,8 +51,8 @@ static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {           //跟踪
 static void exec_once(Decode *s, vaddr_t pc) {                         //执行单条指令，覆盖取址、译码、执行与更新pc的功能
   s->pc = pc;
   s->snpc = pc;
-  isa_exec_once(s);                                                       //执行单条指令
-  cpu.pc = s->dnpc;
+  isa_exec_once(s);                //执行单条指令，位于/home/pz40/ysyx-workbench/nemu/src/isa/riscv32/inst.c
+  cpu.pc = s->dnpc;           //设置下一条指令的pc
 #ifdef CONFIG_ITRACE
   char *p = s->logbuf;
   p += snprintf(p, sizeof(s->logbuf), FMT_WORD ":", s->pc);
@@ -95,19 +95,20 @@ static void execute(uint64_t n) {                       //执行函数
       break;
     }
 
-    if(check_watchpoints()) {                                          //检查监视点****
+    if(check_watchpoints()) {                                          //检查监视点
       printf("Watchpoint changed at pc=0x%08x\n", s.pc);
       nemu_state.state = NEMU_STOP;
       break;
     }
 
-    IFDEF(CONFIG_DEVICE, device_update());
+    IFDEF(CONFIG_DEVICE, device_update()); 
+    //设备更新,查距离上次设备更新是否已经超过一定时间, 若是, 则会尝试刷新屏幕, 并进一步检查是否有按键按下/释放, 以及是否点击了窗口的X按钮; 否则则直接返回, 避免检查过于频繁
 
     s.pc = s.dnpc;                                          // 更新PC
   }
 }
 
-static void statistic() {
+static void statistic() {           //统计信息
   IFNDEF(CONFIG_TARGET_AM, setlocale(LC_NUMERIC, ""));
 #define NUMBERIC_FMT MUXDEF(CONFIG_TARGET_AM, "%", "%'") PRIu64
   Log("host time spent = " NUMBERIC_FMT " us", g_timer);
@@ -123,7 +124,7 @@ void assert_fail_msg() {                                        //断言失败�
 }
 
 /* Simulate how the CPU works. */
-void cpu_exec(uint64_t n) {                            //模拟cpu的执行
+void cpu_exec(uint64_t n) {                         //模拟cpu的执行
   g_print_step = (n < MAX_INST_TO_PRINT);
   switch (nemu_state.state) {
     case NEMU_END:                                //结束
@@ -136,12 +137,13 @@ void cpu_exec(uint64_t n) {                            //模拟cpu的执行
 
   uint64_t timer_start = get_time();
 
-  execute(n);                                       //执行n条指令                  
+    
+  execute(n);       //执行n条指令                  
 
   uint64_t timer_end = get_time();
   g_timer += timer_end - timer_start;
 
-  switch (nemu_state.state) {
+  switch (nemu_state.state) {   //根据不同的状态进行处理
     case NEMU_RUNNING: nemu_state.state = NEMU_STOP; break;
 
     case NEMU_END: 

@@ -1,4 +1,4 @@
-# npc.mk
+#npc.mk
 AM_SRCS := riscv/npc/start.S \
            riscv/npc/trm.c \
            riscv/npc/ioe.c \
@@ -17,11 +17,11 @@ LDFLAGS   += --gc-sections -e _start
 CFLAGS += -DMAINARGS_MAX_LEN=1
 CFLAGS += -DMAINARGS_PLACEHOLDER="\"\""
 
-# NPC参数配置
+#NPC参数配置
 NPCFLAGS += -l $(abspath $(shell dirname $(IMAGE).elf))/npc-log.txt
-NPCFLAGS += -b  # 批处理模式
+NPCFLAGS += -b  #批处理模式
 
-# 跳过参数插入步骤
+#跳过参数插入步骤
 insert-arg: image
 	@echo "Skipping argument insertion for NPC"
 
@@ -68,12 +68,12 @@ run: image
 	# 检查退出码
 	@if [ $$? -eq 0 ]; then \
 		echo "NPC simulation succeeded"; \
-		echo "===== NPC Simulation End ====="; \
 		exit 0; \
 	else \
 		echo "NPC simulation failed with exit code $$?"; \
-		echo "===== NPC Simulation End ====="; \
 		exit 1; \
+	
+	echo "===== NPC Simulation End ====="; 
 	fi
 
 .PHONY: insert-arg

@@ -32,7 +32,7 @@ static uint32_t screen_size() {
 }
 
 static void *vmem = NULL;
-static uint32_t *vgactl_port_base = NULL;
+static uint32_t *vgactl_port_base = NULL;//vga控制寄存器，[0]屏幕大小寄存器，故[1]同步寄存器
 
 #ifdef CONFIG_VGA_SHOW_SCREEN
 #ifndef CONFIG_TARGET_AM
@@ -41,7 +41,7 @@ static uint32_t *vgactl_port_base = NULL;
 static SDL_Renderer *renderer = NULL;
 static SDL_Texture *texture = NULL;
 
-static void init_screen() {
+static void init_screen() {//屏幕初始化
   SDL_Window *window = NULL;
   char title[128];
   sprintf(title, "%s-NEMU", str(__GUEST_ISA__));
@@ -56,7 +56,7 @@ static void init_screen() {
   SDL_RenderPresent(renderer);
 }
 
-static inline void update_screen() {
+static inline void update_screen() {//更新
   SDL_UpdateTexture(texture, NULL, vmem, SCREEN_W * sizeof(uint32_t));
   SDL_RenderClear(renderer);
   SDL_RenderCopy(renderer, texture, NULL, NULL);
@@ -74,11 +74,17 @@ static inline void update_screen() {
 void vga_update_screen() {
   // TODO: call `update_screen()` when the sync register is non-zero,
   // then zero out the sync register
+  if (vgactl_port_base == NULL) return;
+ 
+  if (vgactl_port_base[1]) {
+    update_screen();
+    vgactl_port_base[1] = 0;
+  }
 }
 
 void init_vga() {
   vgactl_port_base = (uint32_t *)new_space(8);
-  vgactl_port_base[0] = (screen_width() << 16) | screen_height();
+  vgactl_port_base[0] = (screen_width() << 16) | screen_height();//vga控制寄存器，[0]屏幕大小寄存器，故[1]同步寄存器
 #ifdef CONFIG_HAS_PORT_IO
   add_pio_map ("vgactl", CONFIG_VGA_CTL_PORT, vgactl_port_base, 8, NULL);
 #else

@@ -33,7 +33,7 @@ void init_alarm();
 void send_key(uint8_t, bool);
 void vga_update_screen();
 
-void device_update() {
+void device_update() {//设备更新函数
   static uint64_t last = 0;
   uint64_t now = get_time();
   if (now - last < 1000000 / TIMER_HZ) {
@@ -41,11 +41,11 @@ void device_update() {
   }
   last = now;
 
-  IFDEF(CONFIG_HAS_VGA, vga_update_screen());
+  IFDEF(CONFIG_HAS_VGA, vga_update_screen());//更新屏幕
 
 #ifndef CONFIG_TARGET_AM
   SDL_Event event;
-  while (SDL_PollEvent(&event)) {
+  while (SDL_PollEvent(&event)) {//处理SDL事件
     switch (event.type) {
       case SDL_QUIT:
         nemu_state.state = NEMU_QUIT;
@@ -56,7 +56,7 @@ void device_update() {
       case SDL_KEYUP: {
         uint8_t k = event.key.keysym.scancode;
         bool is_keydown = (event.key.type == SDL_KEYDOWN);
-        send_key(k, is_keydown);
+        send_key(k, is_keydown);//发送按键信息
         break;
       }
 #endif
@@ -66,16 +66,16 @@ void device_update() {
 #endif
 }
 
-void sdl_clear_event_queue() {
+void sdl_clear_event_queue() {//清除SDL事件队列
 #ifndef CONFIG_TARGET_AM
   SDL_Event event;
-  while (SDL_PollEvent(&event));
+  while (SDL_PollEvent(&event));//清空事件队列
 #endif
 }
 
-void init_device() {
+void init_device() {//初始化设备
   IFDEF(CONFIG_TARGET_AM, ioe_init());
-  init_map();
+  init_map();//初始化IO映射
 
   IFDEF(CONFIG_HAS_SERIAL, init_serial());
   IFDEF(CONFIG_HAS_TIMER, init_timer());
