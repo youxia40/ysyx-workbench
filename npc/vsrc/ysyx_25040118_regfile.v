@@ -1,17 +1,17 @@
-module ysyx_25040118_regfile (
-    input         clk,
-    input         rst,
-    input         stop,
-    input  [4:0]  waddr,
-    input  [31:0] wdata,
-    input         wen,
-    input  [4:0]  raddr1,
+module ysyx_25040118_regfile (//寄存器堆:维护RV32E通用寄存器读写
+    input clk,
+    input rst,
+    input stop,
+    input [4:0] waddr,
+    input [31:0] wdata,
+    input wen,
+    input [4:0] raddr1,
     output [31:0] rdata1,
-    input  [4:0]  raddr2,
+    input [4:0] raddr2,
     output [31:0] rdata2
 );
 
-    //每次写寄存器时把寄存器值同步到 npc_ctx.debug.regs中
+    //每次写寄存器时,把新值同步到npc_ctx.debug.regs
     `ifndef SYNTHESIS
     import "DPI-C" function void npc_set_reg(input int idx, input int value);
     `endif
@@ -19,7 +19,7 @@ module ysyx_25040118_regfile (
 
     logic [31:0] rf [0:15];
 
-    //写
+    //写端口:复位清零;正常时在wen有效且waddr!=0时写入
     always @(posedge clk) begin
         if (rst) begin
             for (integer i = 0; i < 16; i = i + 1) begin
@@ -32,21 +32,21 @@ module ysyx_25040118_regfile (
 
 
                 `ifndef SYNTHESIS
-                //同步到调试上下文（给sdb/expr/difftest和GOOD/BAD TRAP用）
+                //同步到调试上下文(供sdb/expr/difftest与trap打印使用)
                 npc_set_reg(waddr, wdata);
                 `endif
 
 
-                //只在非停止状态和非零值时输出调试信息
+                //预留调试输出位置:仅在非stop且写入值非0时触发
                 if (!stop && wdata != 0) begin
 
-                    //$strobe("[REGFILE] Write: x%0d = 0x%08x", waddr, wdata);
+
                 end
             end
         end
     end
 
-    //读
+    //读端口:x0恒为0;RV32E仅支持x0~x15,越界读返回0
     assign rdata1 = (raddr1 == 0) ? 32'b0 :
                     (raddr1 < 16) ? rf[raddr1] : 32'b0;
 

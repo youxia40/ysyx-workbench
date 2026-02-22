@@ -52,11 +52,12 @@ void init_map() {
   p_space = io_space;
 }
 
-word_t map_read(paddr_t addr, int len, IOMap *map) {
+word_t map_read(paddr_t addr, int len, IOMap *map) {//从IO映射空间读取数据,并调用回调函数准备数据
   assert(len >= 1 && len <= 8);
-  check_bound(map, addr);
+  check_bound(map, addr);//检查访问地址是否在映射范围内
   paddr_t offset = addr - map->low;
-  invoke_callback(map->callback, offset, len, false); // prepare data to read
+  invoke_callback(map->callback, offset, len, false);//调用回调函数准备数据，is_write=false表示读操作
+  //调用时钟功能时，上面的callback就是前面注册的rtc_io_handler，此时真正进入/home/pz40/ysyx-workbench/nemu/src/device/timer.c
   word_t ret = host_read(map->space + offset, len);
   return ret;
 }

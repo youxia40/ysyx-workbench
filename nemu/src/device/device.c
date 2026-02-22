@@ -73,12 +73,12 @@ void sdl_clear_event_queue() {//清除SDL事件队列
 #endif
 }
 
-void init_device() {//初始化设备
+void init_device() {//初始化设备，包括IO映射和各类外设
   IFDEF(CONFIG_TARGET_AM, ioe_init());
   init_map();//初始化IO映射
 
   IFDEF(CONFIG_HAS_SERIAL, init_serial());
-  IFDEF(CONFIG_HAS_TIMER, init_timer());
+  IFDEF(CONFIG_HAS_TIMER, init_timer());//初始化定时器设备,会在monitor.c里调用add_mmio_map把它映射到地址空间
   IFDEF(CONFIG_HAS_VGA, init_vga());
   IFDEF(CONFIG_HAS_KEYBOARD, init_i8042());
   IFDEF(CONFIG_HAS_AUDIO, init_audio());

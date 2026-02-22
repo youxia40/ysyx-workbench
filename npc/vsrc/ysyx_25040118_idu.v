@@ -1,27 +1,27 @@
-module ysyx_25040118_idu (
-    input         clk,
-    input         rst,
-    input         stop,
-    input  [31:0] inst,
-    input  [31:0] pc,
-    output reg [4:0]  rd,
-    output reg [4:0]  rs1,
-    output reg [4:0]  rs2,
+module ysyx_25040118_idu (//译码单元:把指令字段展开为控制信号
+    input clk,
+    input rst,
+    input stop,
+    input [31:0] inst,
+    input [31:0] pc,
+    output reg [4:0] rd,
+    output reg [4:0] rs1,
+    output reg [4:0] rs2,
     output reg [31:0] imm,
-    output reg [4:0]  alu_ctrl,
-    output reg        ebreak,
-    output reg        is_load,
-    output reg        is_store,
-    output reg        is_branch,
-    output reg        is_jal,
-    output reg        is_jalr,
-    output reg        is_system,
-    output reg        is_auipc,
-    output reg        is_lui,
-    output reg        is_alu_imm
+    output reg [4:0] alu_ctrl,
+    output reg ebreak,
+    output reg is_load,
+    output reg is_store,
+    output reg is_branch,
+    output reg is_jal,
+    output reg is_jalr,
+    output reg is_system,
+    output reg is_auipc,
+    output reg is_lui,
+    output reg is_alu_imm
 );
 
-    //寄存器索引只用到x0~x15
+    //寄存器索引只使用x0~x15(RV32E)
     always @(*) begin
         rd  = inst[11:7]  & 5'b0_1111;
         rs1 = inst[19:15] & 5'b0_1111;
@@ -30,7 +30,7 @@ module ysyx_25040118_idu (
 
     //立即数生成
     always @(*) begin
-        case (inst[6:0])
+        case (inst[6:0]) //按opcode选择立即数拼接格式
             //I-type
             7'b0010011,
             7'b0000011,
@@ -38,13 +38,13 @@ module ysyx_25040118_idu (
             //S-type
             7'b0100011: imm = {{20{inst[31]}}, inst[31:25], inst[11:7]};
             //B-type
-            7'b1100011: imm = {{19{inst[31]}}, inst[31], inst[7],
+            7'b1100011: imm = {{19{inst[31]}}, inst[31], inst[7], //B型立即数最低位补0
                                 inst[30:25], inst[11:8], 1'b0};
             //U-type
             7'b0110111,
             7'b0010111: imm = {inst[31:12], 12'b0};
             //J-type
-            7'b1101111: imm = {{11{inst[31]}}, inst[31],
+            7'b1101111: imm = {{11{inst[31]}}, inst[31], //J型立即数按规范重排位段
                                 inst[19:12], inst[20],
                                 inst[30:21], 1'b0};
             default:    imm = 32'b0;
@@ -54,7 +54,7 @@ module ysyx_25040118_idu (
     //译码
     always @(*) begin
 
-        alu_ctrl   = 5'b00000;
+        alu_ctrl   = 5'b00000; //默认走加法路径
         is_load    = 1'b0;
         is_store   = 1'b0;
         is_branch  = 1'b0;
@@ -66,9 +66,9 @@ module ysyx_25040118_idu (
         is_alu_imm = 1'b0;
         ebreak     = 1'b0;
 
-        casez (inst)
+        casez (inst) //按整条指令模板匹配控制信号
             //移位指令
-            32'b0000000_?????_?????_001_?????_0110011: alu_ctrl = 5'b00001;             // sll
+            32'b0000000_?????_?????_001_?????_0110011: alu_ctrl = 5'b00001;             //sll
             32'b0000000_?????_?????_001_?????_0010011: begin                          //slli
                 alu_ctrl   = 5'b00001;
                 is_alu_imm = 1'b1;
@@ -175,8 +175,8 @@ module ysyx_25040118_idu (
             end
 
             //fence/fence.i
-            32'b0000???_?????_00000_000_00000_0001111: ;                 //fence -> NOP
-            32'b0000000_00000_00000_001_00000_0001111: ;                //fence.i -> NOP
+            32'b0000???_?????_00000_000_00000_0001111: ;                 //fence当作NOP
+            32'b0000000_00000_00000_001_00000_0001111: ;                //fence.i当作NOP
 
 
 
@@ -232,16 +232,16 @@ module ysyx_25040118_idu (
 
 
             //未实现指令
-            default: begin
+            default: begin //未覆盖指令统一转为BADTRAP,便于快速定位
                 is_system = 1'b1;
-                ebreak    = 1'b1;                       //触发BAD TRAP
+                ebreak    = 1'b1;//触发BADTRAP
             end
         endcase
 
 
 
-        if (!stop && inst !== 32'h00000013) begin
-            //$strobe("[IDU] PC=0x%08x, INST=0x%08x", pc, inst);
+        if (!stop && inst !== 32'h00000013) begin //保留调试插桩位置
+
         end
     end
 endmodule

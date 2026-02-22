@@ -1,43 +1,43 @@
-module ysyx_25040118_top (
-    input         clk,
-    input         rst,
+module ysyx_25040118_top (//顶层模块:连接IFU/IDU/EXU/LSU/RegFile并导出调试端口
+    input clk,
+    input rst,
     output [31:0] pc_out,
     output [31:0] inst_out,
-    output reg    stop
+    output reg stop
 );
 
 
-    wire [31:0] ifu_pc;
-    wire [31:0] ifu_inst;
-    wire [31:0] exu_next_pc;
+    wire [31:0] ifu_pc;      //取指级当前PC
+    wire [31:0] ifu_inst;    //取指级当前指令
+    wire [31:0] exu_next_pc; //执行级给出的下一PC
 
-    wire [4:0]  idu_rd;
-    wire [4:0]  idu_rs1;
-    wire [4:0]  idu_rs2;
+    wire [4:0] idu_rd;
+    wire [4:0] idu_rs1;
+    wire [4:0] idu_rs2;
     wire [31:0] idu_imm;
-    wire [4:0]  idu_alu_ctrl;
-    wire        idu_ebreak;
-    wire        idu_is_load;
-    wire        idu_is_store;
-    wire        idu_is_branch;
-    wire        idu_is_jal;
-    wire        idu_is_jalr;
-    wire        idu_is_system;
-    wire        idu_is_auipc;
-    wire        idu_is_lui;
-    wire        idu_is_alu_imm;
+    wire [4:0] idu_alu_ctrl;
+    wire idu_ebreak;
+    wire idu_is_load;
+    wire idu_is_store;
+    wire idu_is_branch;
+    wire idu_is_jal;
+    wire idu_is_jalr;
+    wire idu_is_system;
+    wire idu_is_auipc;
+    wire idu_is_lui;
+    wire idu_is_alu_imm;
 
-    wire [31:0] regfile_rdata1;
-    wire [31:0] regfile_rdata2;
-    wire [31:0] exu_result;
+    wire [31:0] regfile_rdata1; //rs1读数据
+    wire [31:0] regfile_rdata2; //rs2读数据
+    wire [31:0] exu_result;     //写回数据
 
 
-    //寄存器写使能
+    //寄存器写使能:rd非x0且不是store/branch/system指令
     wire reg_wen = (|idu_rd) && !idu_is_store && !idu_is_branch && !idu_is_system;
 
 
 
-    ysyx_25040118_ifu ifu_module (
+    ysyx_25040118_ifu ifu_module (//取指模块
         .clk    (clk),
         .rst    (rst),
         .stop   (stop),
@@ -47,7 +47,7 @@ module ysyx_25040118_top (
     );
 
 
-    ysyx_25040118_idu idu_module (
+    ysyx_25040118_idu idu_module (//译码模块
         .clk       (clk),
         .rst       (rst),
         .stop      (stop),
@@ -71,7 +71,7 @@ module ysyx_25040118_top (
     );
 
 
-    ysyx_25040118_regfile regfile_module (
+    ysyx_25040118_regfile regfile_module (//寄存器堆模块
         .clk   (clk),
         .rst   (rst),
         .stop  (stop),
@@ -85,7 +85,7 @@ module ysyx_25040118_top (
     );
 
 
-    ysyx_25040118_exu exu_module (
+    ysyx_25040118_exu exu_module (//执行模块
         .clk      (clk),
         .rst      (rst),
         .stop     (stop),
@@ -110,7 +110,7 @@ module ysyx_25040118_top (
         .ebreak   (idu_ebreak)
     );
 
-    wire [31:0] lsu_load_data;
+    wire [31:0] lsu_load_data; //访存返回的load数据
     ysyx_25040118_lsu lsu_module (
         .clk      (clk),
         .rst      (rst),
@@ -126,26 +126,26 @@ module ysyx_25040118_top (
 
 
 
-    //输出端口
+    //导出调试端口
     assign pc_out   = ifu_pc;
     assign inst_out = ifu_inst;
 
-    //死循环检测（PC如果长时间不变）
+    //死循环检测:如果PC长时间不变则置stop
     reg [31:0] last_pc;
     reg [31:0] same_pc_count;
 
     always @(posedge clk) begin
-        if (rst) begin
+        if (rst) begin //复位时清空死循环检测状态
             last_pc       <= 32'b0;
             same_pc_count <= 32'b0;
             stop          <= 1'b0;
         end
-        else if (!stop) begin
+        else if (!stop) begin //仅在运行态更新停机判定
             if (ifu_pc == last_pc) begin
                 same_pc_count <= same_pc_count + 1;
                 if (same_pc_count > 100) begin
-                    stop <= 1'b1;
-                    //$strobe("[TOP] Deadloop detected at PC=0x%08x", ifu_pc);
+                    stop <= 1'b1; //PC长期不变化则判定为死循环
+
                 end
             end
             else begin

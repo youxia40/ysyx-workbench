@@ -43,7 +43,7 @@ AM_DEVREG(15, AUDIO_CTRL,   WR, int freq, channels, samples);//音频控制
 AM_DEVREG(16, AUDIO_STATUS, RD, int count);//音频状态
                                 //流缓冲区内已写入的字节长度
 AM_DEVREG(17, AUDIO_PLAY,   WR, Area buf);//音频播放
-                                //要播放的音频数据去见
+                                //要播放的音频数据
 AM_DEVREG(18, DISK_CONFIG,  RD, bool present; int blksz, blkcnt);//磁盘配置
 AM_DEVREG(19, DISK_STATUS,  RD, bool ready);//磁盘状态
 AM_DEVREG(20, DISK_BLKIO,   WR, bool write; void *buf; int blkno, blkcnt);//磁盘块输入输出

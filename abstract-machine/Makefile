@@ -55,7 +55,7 @@ $(shell mkdir -p $(DST_DIR))
 
 ### Compilation targets (a binary image or archive)/编译目标（一个二进制映像或存档）
 IMAGE_REL = build/$(NAME)-$(ARCH)
-IMAGE     = $(abspath $(IMAGE_REL))
+IMAGE     = $(abspath $(IMAGE_REL))#最终生成的镜像文件（绝对路径）
 ARCHIVE   = $(WORK_DIR)/build/$(NAME)-$(ARCH).a
 
 ### Collect the files to be linked: object files (`.o`) and libraries (`.a`)/收集要链接的文件：目标文件（'o'）和库（'a'）

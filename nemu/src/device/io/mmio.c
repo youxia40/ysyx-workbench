@@ -54,7 +54,7 @@ void add_mmio_map(const char *name, paddr_t addr, void *space, uint32_t len, io_
 }
 
 /* bus interface */
-word_t mmio_read(paddr_t addr, int len) {
+word_t mmio_read(paddr_t addr, int len) {//总线访问MMIO设备的接口,会被npc_pmem_read/write调用
   return map_read(addr, len, fetch_mmio_map(addr));
 }
 

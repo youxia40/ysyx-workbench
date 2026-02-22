@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+#include "../../include/common.h"
 #include"Vtop.h"
 #include"verilated_fst_c.h"
 #include"verilated.h"
@@ -28,7 +29,9 @@ int main(int argc, char** argv){
 		
 		tfp->dump(i); 
 		printf("a = %d, b = %d, f = %d\n", a, b, top->f);
+		#if NPC_ENABLE_ASSERT
 		assert(top->f == (a ^ b));
+		#endif
 		i++;
 		}
  	tfp->close();

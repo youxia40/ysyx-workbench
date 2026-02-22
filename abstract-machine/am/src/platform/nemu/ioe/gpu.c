@@ -29,7 +29,7 @@ void __am_gpu_init() {
 
 void __am_gpu_config(AM_GPU_CONFIG_T *cfg) {//AM显示控制器信息, 可读出屏幕大小信息width和height.
                                             //另外AM假设系统在运行过程中, 屏幕大小不会发生变化.
-                                            
+
   uint32_t v = inl(VGACTL_ADDR);
   int w = v >> 16;
   int h = v & 0xffff;
@@ -41,7 +41,7 @@ void __am_gpu_config(AM_GPU_CONFIG_T *cfg) {//AM显示控制器信息, 可读出
     .vmemsz = w * h * 4 };
 }
 
-void __am_gpu_fbdraw(AM_GPU_FBDRAW_T *ctl) {
+void __am_gpu_fbdraw(AM_GPU_FBDRAW_T *ctl) {//AM提供的显存绘制接口,用户可以通过它把像素数据写入显存,实现屏幕输出
   if (ctl->w == 0 || ctl->h == 0) { 
     if (ctl->sync) {
       outl(SYNC_ADDR, 1);  
@@ -65,6 +65,6 @@ void __am_gpu_fbdraw(AM_GPU_FBDRAW_T *ctl) {
   }
 }
 
-void __am_gpu_status(AM_GPU_STATUS_T *status) {
+void __am_gpu_status(AM_GPU_STATUS_T *status) {//AM提供的状态查询接口,目前只有ready字段表示GPU是否准备好接受绘制命令,这里直接置为true表示始终准备好
   status->ready = true;
 }

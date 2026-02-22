@@ -22,7 +22,7 @@
 // 在 DUT host 内存 buf 和 REF guest 内存 addr 之间拷贝
 // direction == DIFFTEST_TO_DUT:  REF -> DUT  (guest_to_host(addr) -> buf)
 // direction == DIFFTEST_TO_REF:  DUT -> REF  (buf -> guest_to_host(addr))
-__EXPORT void difftest_memcpy(paddr_t addr, void *buf, size_t n, bool direction) {
+__EXPORT void difftest_memcpy(paddr_t addr, void *buf, size_t n, bool direction) {//内存同步接口，约定中地址是REF的物理地址，buf是DUT的host地址
   if (direction == DIFFTEST_TO_DUT) {
     memcpy(buf, guest_to_host(addr), n);
   } else if (direction == DIFFTEST_TO_REF) {

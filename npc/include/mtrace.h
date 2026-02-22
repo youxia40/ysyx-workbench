@@ -5,10 +5,7 @@
 
 
 //记录一次内存访问
-void mtrace_log(int is_read, uint32_t addr, int len, uint32_t data);
+void mtrace_log(int is_read, uint32_t addr, int len, uint32_t data);//记录一次访存事件
 
-
-//每次调用的hook，实现都在mtrace_log里
-void mtrace_step(NPCContext* ctx);
 
 #endif

@@ -71,7 +71,7 @@ static inline void update_screen() {
 #endif
 #endif
 
-void vga_update_screen() {
+void vga_update_screen() {//外部调用接口：每当vga同步寄存器被写入非0值时调用，触发屏幕更新并清零同步寄存器
   // TODO: call `update_screen()` when the sync register is non-zero,
   // then zero out the sync register
   if (vgactl_port_base == NULL) return;
