@@ -85,7 +85,7 @@ static void execute(uint64_t n) {                       //执行函数
 
   for (;n > 0; n --) {
     exec_once(&s, s.pc);                        //执行单条指令，覆盖取址、译码、执行与更新pc的功能
-    cpu.pc = s.dnpc;                                                 // 更新PC
+    cpu.pc = s.dnpc;           //更新PC
 
     g_nr_guest_inst ++;
 
@@ -95,8 +95,8 @@ static void execute(uint64_t n) {                       //执行函数
       break;
     }
 
-    if(check_watchpoints()) {                                          //检查监视点
-      printf("Watchpoint changed at pc=0x%08x\n", s.pc);
+    if(check_watchpoints()) {  //检查监视点
+      printf("Watchpoint triggered after executing pc=0x%08x (now pc=0x%08x)\n", s.pc, s.dnpc);
       nemu_state.state = NEMU_STOP;
       break;
     }
@@ -104,7 +104,7 @@ static void execute(uint64_t n) {                       //执行函数
     IFDEF(CONFIG_DEVICE, device_update()); 
     //设备更新,查距离上次设备更新是否已经超过一定时间, 若是, 则会尝试刷新屏幕, 并进一步检查是否有按键按下/释放, 以及是否点击了窗口的X按钮; 否则则直接返回, 避免检查过于频繁
 
-    s.pc = s.dnpc;                                          // 更新PC
+    s.pc = s.dnpc;     // 更新PC
   }
 }
 

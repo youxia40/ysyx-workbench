@@ -31,7 +31,7 @@ endif
 
 #NPC平台特定源文件和编译链接配置
 SDL2_CFLAGS := $(shell pkg-config --cflags sdl2 2>/dev/null)
-SDL2_LIBS   := $(shell pkg-config --libs sdl2 2>/dev/null)
+SDL2_LIBS := $(shell pkg-config --libs sdl2 2>/dev/null)
 #如果SDL2不可用则禁用相关功能,并在编译时定义NPC_USE_SDL=0
 ifeq ($(strip $(SDL2_LIBS)),)#如果SDL2不可用则禁用相关功能,并在编译时定义NPC_USE_SDL=0
 	NPC_USE_SDL := 0

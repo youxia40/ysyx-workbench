@@ -14,8 +14,8 @@
 #include <assert.h>
 #endif
 
-#define NPC_ENABLE_SDB      1//交互调试
-#define NPC_ENABLE_DIFFTEST 1//差分测试
+#define NPC_ENABLE_SDB      0//交互调试
+#define NPC_ENABLE_DIFFTEST 0//差分测试
 #define NPC_ENABLE_ITRACE   0//指令追踪
 #define NPC_ENABLE_MTRACE   0//访存追踪
 #define NPC_ENABLE_FTRACE   0//函数追踪
@@ -25,7 +25,7 @@
 //内存配置
 #define MEM_SIZE   (128*1024*1024)//主存总大小
 #define MEM_BASE   0x80000000//主存起始地址
-#define MAX_CYCLES 1000000000//仿真最大周期保护阈值(大型程序需更高上限)
+#define MAX_CYCLES 100000000//仿真最大周期保护阈值(大型程序需更高上限)
 
 //mtrace配套
 #define MTRACE_ADDR_LO 0x00000000u//访存地址过滤下限

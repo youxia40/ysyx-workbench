@@ -126,8 +126,8 @@ module ysyx_25040118_top (//顶层模块:连接IFU/IDU/EXU/LSU/RegFile并导出�
 
 
 
-    //导出调试端口
-    assign pc_out   = ifu_pc;
+    //调试端口
+    assign pc_out = ifu_pc;
     assign inst_out = ifu_inst;
 
     //死循环检测:如果PC长时间不变则置stop
@@ -136,9 +136,9 @@ module ysyx_25040118_top (//顶层模块:连接IFU/IDU/EXU/LSU/RegFile并导出�
 
     always @(posedge clk) begin
         if (rst) begin //复位时清空死循环检测状态
-            last_pc       <= 32'b0;
+            last_pc <= 32'b0;
             same_pc_count <= 32'b0;
-            stop          <= 1'b0;
+            stop <= 1'b0;
         end
         else if (!stop) begin //仅在运行态更新停机判定
             if (ifu_pc == last_pc) begin
@@ -149,7 +149,7 @@ module ysyx_25040118_top (//顶层模块:连接IFU/IDU/EXU/LSU/RegFile并导出�
                 end
             end
             else begin
-                last_pc       <= ifu_pc;
+                last_pc <= ifu_pc;
                 same_pc_count <= 32'b0;
             end
         end

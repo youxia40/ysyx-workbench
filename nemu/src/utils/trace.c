@@ -25,7 +25,7 @@ void itrace_inst(word_t pc, uint32_t inst) {                                 //�
 }
 
 
-//home/pz40/ysyx-workbench/nemu/src/utils/filelist.mk规定，关闭trace功能后，disasm.c不会被编译，但itrace_display_inst仍然会被调用，导致链接错误
+//nemu/src/utils/filelist.mk规定，关闭trace功能后，disasm.c不会被编译，但itrace_display_inst仍然会被调用，导致链接错误
 #if defined(CONFIG_ITRACE) || defined(CONFIG_IQUEUE)
 void itrace_display_inst() {                                                               //显示指令环形缓冲区内容
     char line[64];                                                          //用于存储每行输出的字符串
@@ -73,7 +73,7 @@ void itrace_display_inst() {
 #include <stdio.h>
 #include <stdbool.h>
 
-static bool mtrace_enabled = false;  //全局开关
+static bool mtrace_enabled = true;  //全局开关
 
 //启用/禁用追踪
 void mtrace_enable(bool enable) {
@@ -81,16 +81,16 @@ void mtrace_enable(bool enable) {
 }
 
 //内存读追踪（直接打印）
-void mtrace_read(uint32_t addr, int len) {
+void mtrace_read(paddr_t addr, int len) {
     if (mtrace_enabled) {
-        printf("[mtrace] READ  0x%08x, len=%d\n", addr, len);
+        printf("[mtrace] READ  " FMT_PADDR ", len=%d\n", addr, len);
     }
 }
 
 //内存写追踪（直接打印）
-void mtrace_write(uint32_t addr, int len, uint32_t data) {
+void mtrace_write(paddr_t addr, int len, word_t data) {
     if (mtrace_enabled) {
-        printf("[mtrace] WRITE 0x%08x, len=%d, data=0x%08x\n", addr, len, data);
+        printf("[mtrace] WRITE " FMT_PADDR ", len=%d, data=" FMT_WORD "\n", addr, len, data);
     }
 }
 
@@ -100,10 +100,10 @@ void mtrace_write(uint32_t addr, int len, uint32_t data) {
 void mtrace_enable(bool enable) {
     (void)enable; 
 }
-void mtrace_read(uint32_t addr, int len) {
+void mtrace_read(paddr_t addr, int len) {
     (void)addr; (void)len; 
 }
-void mtrace_write(uint32_t addr, int len, uint32_t data) {
+void mtrace_write(paddr_t addr, int len, word_t data) {
     (void)addr; (void)len; (void)data; 
 }
 #endif
@@ -117,7 +117,11 @@ void mtrace_write(uint32_t addr, int len, uint32_t data) {
 #include <stdio.h>
 #include <stdbool.h>
 
-static bool dtrace_enabled = false;  //全局开关
+static bool dtrace_enabled = true;  //全局开关
+
+static inline bool dtrace_skip_dev(const char *dev) {//过滤掉串口设备的访问日志，dev是设备名称字符串命名为"serial"
+    return dev != NULL && strcmp(dev, "serial") == 0;
+}
 
 //启用/禁用追踪
 void dtrace_enable(bool enable) {
@@ -125,35 +129,19 @@ void dtrace_enable(bool enable) {
 }
 
 
-//内存读追踪(直接打印）
-void dtrace_read(uint32_t addr, int len) {
-    IOMap *map = fetch_mmio_map(addr);
-
-    if (dtrace_enabled) {
-        printf("[dtrace] READ  ")
-        if (map != NULL) {
-            printf("%08s\n", map->name ? map->name : "(null)");
-        }
-        else {
-            printf("%08s\n", "pmem");
-        }
-        printf("0x%08x, len=%d\n", addr, len);
+//设备读追踪(直接打印）
+void dtrace_read(paddr_t addr, int len, const char *dev) {
+    if (dtrace_enabled && !dtrace_skip_dev(dev)) {
+        printf("[dtrace] READ  %-12s " FMT_PADDR ", len=%d\n",
+            dev ? dev : "(null)", addr, len);
     }
 }
 
 //内存写追踪（直接打印）
-void dtrace_write(uint32_t addr, int len, uint32_t data) {
-    IOMap *map = fetch_mmio_map(addr);
-
-     if (dtrace_enabled) {
-        printf("[dtrace] WRITE ")
-        if (map != NULL) {
-            printf("%08s\n", map->name ? map->name : "(null)");
-        }
-        else {
-            printf("%08s\n", "pmem");
-        }
-        printf("0x%08x, len=%d, data=0x%08x\n", addr, len, data);
+void dtrace_write(paddr_t addr, int len, word_t data, const char *dev) {
+    if (dtrace_enabled && !dtrace_skip_dev(dev)) {
+        printf("[dtrace] WRITE %-12s " FMT_PADDR ", len=%d, data=" FMT_WORD "\n",
+            dev ? dev : "(null)", addr, len, data);
     }
 }
 
@@ -161,8 +149,39 @@ void dtrace_write(uint32_t addr, int len, uint32_t data) {
 
 //禁用时生成空函数
 void dtrace_enable(bool enable) { (void)enable; }
-void dtrace_read(uint32_t addr, int len) { (void)addr; (void)len; }
-void dtrace_write(uint32_t addr, int len, uint32_t data) { (void)addr; (void)len; (void)data; }
+void dtrace_read(paddr_t addr, int len, const char *dev) { (void)addr; (void)len; (void)dev; }
+void dtrace_write(paddr_t addr, int len, word_t data, const char *dev) { (void)addr; (void)len; (void)data; (void)dev; }
+#endif
+
+
+//---------------------------etrace---------------------------
+
+#ifdef CONFIG_ETRACE
+
+///FMT等格式化宏定义在nemu/include/common.h中，用于打印不同类型的格式化字符串
+
+void etrace_trap(word_t no, vaddr_t epc, vaddr_t handler) {
+    //记录发生的中断/异常信息，是陷入异常时从“mepc”跳到“异常入口地址”
+
+    const char *type = ((no >> (sizeof(word_t) * 8 - 1)) & 1) ? "IRQ" : "EXC";//根据no最高位判断是中断还是异常
+    printf("\n[etrace] trap %-3s no=" FMT_WORD " epc=" FMT_WORD " -> " FMT_WORD "\n", type, no, epc, handler);//trap是事件追踪，打印事件类型、编号、发生地址和处理函数地址
+}
+
+void etrace_mret(vaddr_t from, vaddr_t to) {
+    //记录从异常返回的信息，是从mret跳到“mepc的下一条指令”
+    printf("[etrace] mret pc=" FMT_WORD " -> " FMT_WORD "\n", from, to);
+}
+
+#else
+
+void etrace_trap(word_t no, vaddr_t epc, vaddr_t handler) {//trap事件追踪
+    (void)no; (void)epc; (void)handler;
+}
+
+void etrace_mret(vaddr_t from, vaddr_t to) {//mret事件追踪
+    (void)from; (void)to;
+}
+
 #endif
 
 
@@ -348,12 +367,12 @@ static int rec_depth = 1;  // 调用深度计数器
 
 void display_call_func(word_t pc, word_t func_addr) {                                           //显示调用函数信息
     // 获取调用者和被调用者名称
-    const char *caller = find_function_name(pc);                                                        // 获取调用者函数名
-    const char *callee = find_function_name(func_addr);                                           // 获取被调用者函数名
+    const char *caller = find_function_name(pc);                                                        //获取调用者函数名
+    const char *callee = find_function_name(func_addr);                                           //获取被调用者函数名
     
     
     printf("0x%08x: ", pc);
-    for (int i = 0; i < rec_depth; i++) printf("  "); // 基于深度的缩进
+    for (int i = 0; i < rec_depth; i++) printf("  "); //基于深度的缩进
     rec_depth++;
     
     
@@ -364,7 +383,7 @@ void display_call_func(word_t pc, word_t func_addr) {                           
 }
 
 void display_ret_func(word_t pc) {                                                      //显示返回函数信息
-    rec_depth--;                                                                                     // 在打印前减少深度
+    rec_depth--;                                                                                     //在打印前减少深度
     
     const char *func_name = find_function_name(pc);
     
@@ -378,7 +397,7 @@ void display_ret_func(word_t pc) {                                              
     
     
     IFDEF(CONFIG_FTRACE_RETVAL, 
-        printf(" [ret=0x%08x]", R(10));                                                     // R(10) 通常用于存储函数返回值
+        printf(" [ret=0x%08x]", R(10));                         //R(10)通常用于存储函数返回值
     );
     printf("\n");
 }

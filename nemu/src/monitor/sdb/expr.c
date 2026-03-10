@@ -24,6 +24,10 @@
 #include <sys/types.h>
 #include <memory/paddr.h>
 
+
+static const bool expr_token_log = false; ///是否打印token识别日志
+
+
 enum {
   TK_NOTYPE = 256, TK_EQ=257,TK_NEQ=258,
   TK_DNUM=259,TK_HNUM=260,TK_NEG=261, //TK_NEG负号        
@@ -91,7 +95,7 @@ static bool make_token(char *e) {                   //处理token
   int i;
   regmatch_t pmatch;
 
-  nr_token = 0;                                         //已识别token的数量(归0)
+  nr_token = 0; //已识别token的数量(归0)
 
   while (e[position] != '\0') {
     /* Try all rules one by one. */
@@ -100,8 +104,10 @@ static bool make_token(char *e) {                   //处理token
         char *substr_start = e + position;                          //子串起始位置
         int substr_len = pmatch.rm_eo;                              //子串长度
 
-        Log("match rules[%d] = \"%s\" at position %d with len %d: %.*s",
-            i, rules[i].regex, position, substr_len, substr_len, substr_start);
+        if (expr_token_log) {
+          Log("match rules[%d] = \"%s\" at position %d with len %d: %.*s",
+              i, rules[i].regex, position, substr_len, substr_len, substr_start);
+        }
 
         position += substr_len;                               //更新位置,向后移动
 

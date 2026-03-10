@@ -23,7 +23,7 @@ module ysyx_25040118_idu (//译码单元:把指令字段展开为控制信号
 
     //寄存器索引只使用x0~x15(RV32E)
     always @(*) begin
-        rd  = inst[11:7]  & 5'b0_1111;
+        rd  = inst[11:7] & 5'b0_1111;
         rs1 = inst[19:15] & 5'b0_1111;
         rs2 = inst[24:20] & 5'b0_1111;
     end
@@ -54,42 +54,42 @@ module ysyx_25040118_idu (//译码单元:把指令字段展开为控制信号
     //译码
     always @(*) begin
 
-        alu_ctrl   = 5'b00000; //默认走加法路径
-        is_load    = 1'b0;
-        is_store   = 1'b0;
-        is_branch  = 1'b0;
-        is_jal     = 1'b0;
-        is_jalr    = 1'b0;
-        is_system  = 1'b0;
-        is_auipc   = 1'b0;
-        is_lui     = 1'b0;
+        alu_ctrl = 5'b00000; //默认走加法路径
+        is_load = 1'b0;
+        is_store = 1'b0;
+        is_branch = 1'b0;
+        is_jal = 1'b0;
+        is_jalr = 1'b0;
+        is_system = 1'b0;
+        is_auipc = 1'b0;
+        is_lui = 1'b0;
         is_alu_imm = 1'b0;
-        ebreak     = 1'b0;
+        ebreak = 1'b0;
 
         casez (inst) //按整条指令模板匹配控制信号
             //移位指令
             32'b0000000_?????_?????_001_?????_0110011: alu_ctrl = 5'b00001;             //sll
             32'b0000000_?????_?????_001_?????_0010011: begin                          //slli
-                alu_ctrl   = 5'b00001;
+                alu_ctrl = 5'b00001;
                 is_alu_imm = 1'b1;
             end
 
             32'b0000000_?????_?????_101_?????_0110011: alu_ctrl = 5'b00101;         //srl
             32'b0000000_?????_?????_101_?????_0010011: begin                         //srli
-                alu_ctrl   = 5'b00101;
+                alu_ctrl = 5'b00101;
                 is_alu_imm = 1'b1;
             end
 
             32'b0100000_?????_?????_101_?????_0110011: alu_ctrl = 5'b00110;         //sra
             32'b0100000_?????_?????_101_?????_0010011: begin                        //srai
-                alu_ctrl   = 5'b00110;
+                alu_ctrl = 5'b00110;
                 is_alu_imm = 1'b1;
             end
 
             //算术指令
             32'b0000000_?????_?????_000_?????_0110011: alu_ctrl = 5'b00000;             //add
             32'b???????_?????_?????_000_?????_0010011: begin                         //addi
-                alu_ctrl   = 5'b00000; 
+                alu_ctrl = 5'b00000; 
                 is_alu_imm = 1'b1;
             end
             32'b0100000_?????_?????_000_?????_0110011: alu_ctrl = 5'b10000;             //sub
@@ -98,18 +98,18 @@ module ysyx_25040118_idu (//译码单元:把指令字段展开为控制信号
 
             //auipc/lui
             32'b???????_?????_?????_???_?????_0010111: begin               //auipc
-                alu_ctrl  = 5'b01010;
-                is_auipc  = 1'b1;
+                alu_ctrl = 5'b01010;
+                is_auipc = 1'b1;
             end
             32'b???????_?????_?????_???_?????_0110111: begin               //lui
-                alu_ctrl  = 5'b01001;
-                is_lui    = 1'b1;
+                alu_ctrl = 5'b01001;
+                is_lui = 1'b1;
             end
 
             //逻辑指令
             32'b0000000_?????_?????_100_?????_0110011: alu_ctrl = 5'b00100;              //xor
             32'b???????_?????_?????_100_?????_0010011: begin                        //xori
-                alu_ctrl   = 5'b00100;
+                alu_ctrl = 5'b00100;
                 is_alu_imm = 1'b1;
             end
 
@@ -121,56 +121,56 @@ module ysyx_25040118_idu (//译码单元:把指令字段展开为控制信号
 
             32'b0000000_?????_?????_111_?????_0110011: alu_ctrl = 5'b01000;         //and
             32'b???????_?????_?????_111_?????_0010011: begin                      //andi
-                alu_ctrl   = 5'b01000;
+                alu_ctrl = 5'b01000;
                 is_alu_imm = 1'b1;
             end
 
             //比较/置位指令
             32'b0000000_?????_?????_010_?????_0110011: alu_ctrl = 5'b00010;      //slt
             32'b???????_?????_?????_010_?????_0010011: begin                     //slti
-                alu_ctrl   = 5'b00010;
+                alu_ctrl = 5'b00010;
                 is_alu_imm = 1'b1;
             end
 
             32'b0000000_?????_?????_011_?????_0110011: alu_ctrl = 5'b00011;             //sltu
             32'b???????_?????_?????_011_?????_0010011: begin                     //sltiu
-                alu_ctrl   = 5'b00011;
+                alu_ctrl = 5'b00011;
                 is_alu_imm = 1'b1;
             end
 
             //分支指令
             32'b???????_?????_?????_000_?????_1100011: begin                        //beq
                 is_branch = 1'b1;
-                alu_ctrl  = 5'b01001;
+                alu_ctrl = 5'b01001;
             end
             32'b???????_?????_?????_001_?????_1100011: begin                    //bne
                 is_branch = 1'b1;
-                alu_ctrl  = 5'b01010;
+                alu_ctrl = 5'b01010;
             end
             32'b???????_?????_?????_100_?????_1100011: begin                       //blt
                 is_branch = 1'b1;
-                alu_ctrl  = 5'b01011;
+                alu_ctrl = 5'b01011;
             end
             32'b???????_?????_?????_101_?????_1100011: begin                    //bge
                 is_branch = 1'b1;
-                alu_ctrl  = 5'b01100;
+                alu_ctrl = 5'b01100;
             end
             32'b???????_?????_?????_110_?????_1100011: begin                    //bltu
                 is_branch = 1'b1;
-                alu_ctrl  = 5'b01101;
+                alu_ctrl = 5'b01101;
             end
             32'b???????_?????_?????_111_?????_1100011: begin                     //bgeu
                 is_branch = 1'b1;
-                alu_ctrl  = 5'b01110;
+                alu_ctrl = 5'b01110;
             end
 
             //跳转并链接
             32'b???????_?????_?????_???_?????_1101111: begin                        //jal
-                is_jal   = 1'b1;
+                is_jal = 1'b1;
                 alu_ctrl = 5'b01111;
             end
             32'b???????_?????_?????_000_?????_1100111: begin                    //jalr
-                is_jalr  = 1'b1;
+                is_jalr = 1'b1;
                 alu_ctrl = 5'b01111;
             end
 
@@ -185,34 +185,34 @@ module ysyx_25040118_idu (//译码单元:把指令字段展开为控制信号
             //ecall
             32'b0000000_00000_00000_000_00000_1110011: begin
                 is_system = 1'b1;
-                ebreak    = 1'b0;
+                ebreak = 1'b0;
             end
 
             //ebreak用作AM的halt
             32'b0000000_00001_00000_000_00000_1110011: begin
                 is_system = 1'b1;
-                ebreak    = 1'b1;
+                ebreak = 1'b1;
             end
 
             //Load指令
             32'b???????_?????_?????_000_?????_0000011: begin                //lb
-                is_load  = 1'b1;
+                is_load = 1'b1;
                 alu_ctrl = 5'b00000;
             end
             32'b???????_?????_?????_001_?????_0000011: begin                     //lh
-                is_load  = 1'b1;
+                is_load = 1'b1;
                 alu_ctrl = 5'b00000;
             end
             32'b???????_?????_?????_010_?????_0000011: begin                    //lw
-                is_load  = 1'b1;
+                is_load = 1'b1;
                 alu_ctrl = 5'b00000;
             end
             32'b???????_?????_?????_100_?????_0000011: begin                    //lbu
-                is_load  = 1'b1;
+                is_load = 1'b1;
                 alu_ctrl = 5'b00000;
             end
             32'b???????_?????_?????_101_?????_0000011: begin                    //lhu
-                is_load  = 1'b1;
+                is_load = 1'b1;
                 alu_ctrl = 5'b00000;
             end
 
@@ -234,7 +234,7 @@ module ysyx_25040118_idu (//译码单元:把指令字段展开为控制信号
             //未实现指令
             default: begin //未覆盖指令统一转为BADTRAP,便于快速定位
                 is_system = 1'b1;
-                ebreak    = 1'b1;//触发BADTRAP
+                ebreak = 1'b1;//触发BADTRAP
             end
         endcase
 

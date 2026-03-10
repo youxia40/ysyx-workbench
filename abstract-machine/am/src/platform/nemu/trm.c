@@ -4,7 +4,7 @@
 extern char _heap_start;
 int main(const char *args);
 
-Area heap = RANGE(&_heap_start, PMEM_END);                  //用于指示堆区的起始和末尾
+Area heap = RANGE(&_heap_start, PMEM_END);//导出给klib的堆内存范围
 static const char mainargs[MAINARGS_MAX_LEN] = MAINARGS_PLACEHOLDER; // defined in CFLAGS
 
 void putch(char ch) {    //输出字符到串口

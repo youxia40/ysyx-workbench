@@ -182,7 +182,7 @@ static void keyboard_init_once(void){//初始化键盘输入(SDL直通,非SDL改
   }
   pclose(fp);
 
-  kbd_stty_old[strcspn(kbd_stty_old, "\r\n")] = '\0';//去掉行尾换行符，便于后续直接用在stty恢复命令中
+  kbd_stty_old[strcspn(kbd_stty_old, "\r\n")] = '\0';//去掉行尾换行符，后直接用在stty恢复命令中
   if (run_stty_cmd("stty -icanon -echo min 0 time 0 2>/dev/null") != 0) {
     //设置非规范模式和关闭回显，如果失败了就直接返回，保持键盘功能但不修改终端设置
     return;
@@ -192,7 +192,7 @@ static void keyboard_init_once(void){//初始化键盘输入(SDL直通,非SDL改
   kbd_ok = 1;
 }
 
-static inline uint32_t keyboard_poll_event(void){//统一键盘事件读取(KEYDOWN:bit15=1,KEYUP:bit15=0,无事件:0)
+static inline uint32_t keyboard_poll_event(void){//键盘事件读取(KEYDOWN:bit15=1,KEYUP:bit15=0,无事件:0)
   keyboard_init_once();
   if (!kbd_ok) {
     return 0;
@@ -210,17 +210,32 @@ static inline uint32_t keyboard_poll_event(void){//统一键盘事件读取(KEYD
 #endif
 }
 
-static uint64_t get_time_us(void){//读取当前系统时间(微秒)
+static inline uint32_t serial_poll_char(void){//串口输入读取(无输入返回0xff)
+#if NPC_USE_SDL
+  //SDL模式下终端stdin通常不作为输入来源
+  return 0xffu;
+#else
+  keyboard_init_once();//复用同一套终端非规范模式初始化
+  int ch = getchar();
+  if (ch == EOF) {
+    clearerr(stdin);
+    return 0xffu;
+  }
+  return (uint32_t)(unsigned char)ch;
+#endif
+}
+
+static uint64_t get_time_us(void){//读当前系统时间(微秒)
   struct timeval tv;//timeval结构体用于存储秒和微秒，sys/time.h
 
-  gettimeofday(&tv, NULL);//获取当前时间
+  gettimeofday(&tv, NULL);//取当前时间
   return (uint64_t)tv.tv_sec * 1000000ull + (uint64_t)tv.tv_usec;
 }
 
 static uint64_t get_uptime_us(void){//读取从启动到当前的时间(微秒)
   uint64_t now = get_time_us();
   if (rtc_boot_us == 0) {
-    //首次访问时记录boot基准，后续统一返回相对时间，便于与AM uptime语义对齐
+    //首次访问时记录boot基准，后续统一返回相对时间，便于与AM的uptime语义对齐
     rtc_boot_us = now;
   }
   return now - rtc_boot_us;//返回相对时间
@@ -238,7 +253,7 @@ static inline uint32_t fb_read_word(uint32_t addr_aligned){//按4字节读取帧
     return 0;
   }
 
-  uint32_t off = addr_aligned - MMIO_FB_ADDR;
+  uint32_t off = addr_aligned - MMIO_FB_ADDR;//相对帧缓冲起始地址的偏移
   if (off + 4 > GPU_VMEM_SIZE) {//越界访问时返回0
     return 0;
   }
@@ -320,6 +335,10 @@ uint32_t mmio_read(uint32_t addr_aligned){//MMIO读入口
     return keyboard_poll_event();
   }
 
+  if (addr_aligned == (MMIO_SERIAL_ADDR & ~0x3u)) {//读取串口输入字符
+    return serial_poll_char();
+  }
+
   return 0;
 }
 
@@ -329,7 +348,7 @@ void mmio_write(uint32_t addr_aligned, uint32_t data, uint8_t mask){//MMIO写入
   assert((mask & 0xf0u) == 0);
 #endif
   if (fb_in_range(addr_aligned)) {
-    //帧缓冲区域采用“内存语义”写入，不走寄存器语义
+    //帧缓冲区域采用“内存语义”写入，不走寄存器
     fb_write_word(addr_aligned, data, mask);
     return;
   }

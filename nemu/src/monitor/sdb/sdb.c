@@ -237,13 +237,14 @@ static int cmd_d(char *args){
     return 0;
   }
 
-  int n = atoi(args);
-  if (n <= 0) {
+  char *end = NULL;
+  long n = strtol(args, &end, 10);
+  if (end == args || *end != '\0' || n < 0) {
     printf("Error!Invalid Argument!\n");
     return 0;
   }
 
-  delete_wp(n);
+  delete_wp((int)n);
   return 0;
 }
 

@@ -3,9 +3,10 @@
 
 #include <riscv.h>
 
+//定义地址空间和设备寄存器地址
 #define DEVICE_BASE 0xa0000000u//NPC设备MMIO基址
 #define MMIO_BASE   0xa0000000u//设备地址基址,所有设备寄存器地址都从这里开始偏移
-
+//设备寄存器地址，保持与NEMU实现一致
 #define SERIAL_PORT (DEVICE_BASE + 0x00003f8u)//串口地址
 #define KBD_ADDR    (DEVICE_BASE + 0x0000060u)//键盘寄存器地址
 #define RTC_ADDR    (DEVICE_BASE + 0x0000048u)//RTC寄存器地址(低32位),高32位在RTC_ADDR+4

@@ -19,7 +19,7 @@
 #define SCREEN_W (MUXDEF(CONFIG_VGA_SIZE_800x600, 800, 400))
 #define SCREEN_H (MUXDEF(CONFIG_VGA_SIZE_800x600, 600, 300))
 
-static uint32_t screen_width() {
+static uint32_t screen_width() {//屏幕宽度
   return MUXDEF(CONFIG_TARGET_AM, io_read(AM_GPU_CONFIG).width, SCREEN_W);
 }
 
@@ -31,41 +31,41 @@ static uint32_t screen_size() {
   return screen_width() * screen_height() * sizeof(uint32_t);
 }
 
-static void *vmem = NULL;
+static void *vmem = NULL;//帧缓冲指针
 static uint32_t *vgactl_port_base = NULL;//vga控制寄存器，[0]屏幕大小寄存器，故[1]同步寄存器
 
 #ifdef CONFIG_VGA_SHOW_SCREEN
 #ifndef CONFIG_TARGET_AM
 #include <SDL2/SDL.h>
 
-static SDL_Renderer *renderer = NULL;
-static SDL_Texture *texture = NULL;
+static SDL_Renderer *renderer = NULL;//SDL渲染器指针
+static SDL_Texture *texture = NULL;//SDL纹理指针
 
 static void init_screen() {//屏幕初始化
   SDL_Window *window = NULL;
-  char title[128];
+  char title[128];//窗口标题，包含ISA信息
   sprintf(title, "%s-NEMU", str(__GUEST_ISA__));
   SDL_Init(SDL_INIT_VIDEO);
-  SDL_CreateWindowAndRenderer(
+  SDL_CreateWindowAndRenderer(//窗口尺寸根据配置选择400x300或800x600，与配置一致
       SCREEN_W * (MUXDEF(CONFIG_VGA_SIZE_400x300, 2, 1)),
       SCREEN_H * (MUXDEF(CONFIG_VGA_SIZE_400x300, 2, 1)),
       0, &window, &renderer);
-  SDL_SetWindowTitle(window, title);
+  SDL_SetWindowTitle(window, title);//设置窗口标题
   texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,
       SDL_TEXTUREACCESS_STATIC, SCREEN_W, SCREEN_H);
-  SDL_RenderPresent(renderer);
+  SDL_RenderPresent(renderer);//显示初始空白窗口
 }
 
 static inline void update_screen() {//更新
   SDL_UpdateTexture(texture, NULL, vmem, SCREEN_W * sizeof(uint32_t));
-  SDL_RenderClear(renderer);
-  SDL_RenderCopy(renderer, texture, NULL, NULL);
-  SDL_RenderPresent(renderer);
+  SDL_RenderClear(renderer);//清空渲染目标
+  SDL_RenderCopy(renderer, texture, NULL, NULL);//把纹理复制到渲染目标(窗口)，不缩放
+  SDL_RenderPresent(renderer);//显示渲染结果
 }
 #else
 static void init_screen() {}
 
-static inline void update_screen() {
+static inline void update_screen() {//AM平台通过写MMIO寄存器触发屏幕更新，直接把帧缓冲内容提交给环境
   io_write(AM_GPU_FBDRAW, 0, 0, vmem, screen_width(), screen_height(), true);
 }
 #endif
@@ -91,8 +91,8 @@ void init_vga() {
   add_mmio_map("vgactl", CONFIG_VGA_CTL_MMIO, vgactl_port_base, 8, NULL);
 #endif
 
-  vmem = new_space(screen_size());
-  add_mmio_map("vmem", CONFIG_FB_ADDR, vmem, screen_size(), NULL);
+  vmem = new_space(screen_size());//分配帧缓冲空间
+  add_mmio_map("vmem", CONFIG_FB_ADDR, vmem, screen_size(), NULL);//把帧缓冲映射到MMIO地址空间，允许按内存dingyi访问
   IFDEF(CONFIG_VGA_SHOW_SCREEN, init_screen());
   IFDEF(CONFIG_VGA_SHOW_SCREEN, memset(vmem, 0, screen_size()));
 }

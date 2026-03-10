@@ -150,7 +150,7 @@ config TRACE_END
 
 config ITRACE
   depends on TRACE && TARGET_NATIVE_ELF && ENGINE_INTERPRETER
-  bool "Enable instruction tracer"
+  bool "Enable instruction tracer (ITRACE)"
   default y
 
 config IRINGBUF
@@ -164,34 +164,53 @@ config ITRACE_COND
   default "true"
 
 config MTRACE
-    bool "Enable memory access tracing (MTRACE)"
-    depends on TRACE && HAS_SYMBOL && DEVICE_MMIO   #HAS_SYMBOL符号支持
-    default n
-    help
-        Requires TRACE framework and symbol support.
+  bool "Enable memory access tracing (MTRACE)"
+  depends on TRACE
+  default n
+  help
+    Trace physical memory reads/writes in paddr_read/paddr_write.
 
 config MTRACE_BUF_SIZE
-    int "mtrace buffer size (entries)"
-    depends on MTRACE
-    default 1024
-    range 64 65536
-    help
-        Buffer size for memory trace entries.
+  int "mtrace buffer size (entries)"
+  depends on MTRACE
+  default 1024
+  range 64 65536
+  help
+    Buffer size for memory trace entries.
 
 config DTRACE
-    bool "Enable device access tracing (DTRACE)"
-    depends on TRACE && HAS_SYMBOL && DEVICE_MMIO   #HAS_SYMBOL符号支持
-    default n
-    help
-        Requires TRACE framework and symbol support.
+  bool "Enable device access tracing (DTRACE)"
+  depends on TRACE && DEVICE
+  default n
+  help
+    Trace MMIO device accesses.
 
 config DTRACE_BUF_SIZE
-    int "dtrace buffer size (entries)"
-    depends on DTRACE
-    default 1024
-    range 64 65536
-    help
-        Buffer size for device trace entries.
+  int "dtrace buffer size (entries)"
+  depends on DTRACE
+  default 1024
+  range 64 65536
+  help
+    Buffer size for device trace entries.
+
+config ETRACE
+  bool "Enable exception/interrupt tracing (ETRACE)"
+  depends on TRACE
+  default n
+  help
+    Trace trap entry/return path (isa_raise_intr and mret).
+
+config FTRACE
+  bool "Enable function tracing (FTRACE)"
+  depends on TRACE && TARGET_NATIVE_ELF
+  default n
+  help
+    Trace function call/return based on ELF symbols.
+
+config FTRACE_RETVAL
+  bool "Show return(a0) value in FTRACE"
+  depends on FTRACE
+  default n
 
 config DIFFTEST
   depends on TARGET_NATIVE_ELF

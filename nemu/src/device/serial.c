@@ -15,13 +15,23 @@
 
 #include <utils.h>
 #include <device/map.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <unistd.h>
 
 /* http://en.wikibooks.org/wiki/Serial_Programming/8250_UART_Programming */
 // NOTE: this is compatible to 16550
 
 #define CH_OFFSET 0
 
-static uint8_t *serial_base = NULL;
+static uint8_t *serial_base = NULL;//串口设备基地址指针
+
+static void serial_stdin_init() {//非SDL模式下初始化终端为非阻塞输入，便于串口输入轮询
+  int flags = fcntl(STDIN_FILENO, F_GETFL);
+  if (flags >= 0) {
+    fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK);
+  }
+}
 
 
 static void serial_putc(char ch) {//串口发送字符
@@ -34,7 +44,15 @@ static void serial_io_handler(uint32_t offset, int len, bool is_write) {//串口
     /* We bind the serial port with the host stderr in NEMU. */
     case CH_OFFSET:
       if (is_write) serial_putc(serial_base[0]);//写操作，发送字符
-      else panic("do not support read");
+      else {
+        int ch = getchar();
+        if (ch == EOF) {
+          clearerr(stdin);
+          serial_base[0] = 0xff;
+        } else {
+          serial_base[0] = (uint8_t)ch;
+        }
+      }
       break;
     default: panic("do not support offset = %d", offset);
   }
@@ -42,6 +60,7 @@ static void serial_io_handler(uint32_t offset, int len, bool is_write) {//串口
 
 void init_serial() {//初始化串口设备
   serial_base = new_space(8);//分配串口设备空间
+  serial_stdin_init();
 #ifdef CONFIG_HAS_PORT_IO
   add_pio_map ("serial", CONFIG_SERIAL_PORT, serial_base, 8, serial_io_handler);
 #else

@@ -20,6 +20,8 @@
 #include <common.h>
 #include <generated/autoconf.h>                       //自动生成的配置头文件, 包含了NEMU的配置信息
 
+extern void etrace_mret(vaddr_t from, vaddr_t to);
+
 #define R(i) gpr(i)
 #define Mr vaddr_read                       //vaddr_read是一个函数, 用于从内存中读取数据
 #define Mw vaddr_write                   //vaddr_write是一个函数, 用于向内存中写入数据                        
@@ -79,6 +81,8 @@ static int decode_exec(Decode *s) {                                       //译�
   __VA_ARGS__ ; \
 }
 
+  word_t zimm = BITS(s->isa.inst, 19, 15);
+
   INSTPAT_START();                         //INSTPAT意思是instruction pattern，是一个宏(在nemu/include/cpu/decode.h中定义), 用于定义一条模式匹配规则
 
   //基础指令
@@ -94,6 +98,28 @@ static int decode_exec(Decode *s) {                                       //译�
   INSTPAT("0000000 ????? ????? 000 ????? 01100 11", add    , R, R(rd) = src1 + src2);        //加法
   INSTPAT("??????? ????? ????? 000 ????? 00100 11", addi   , I, R(rd) = src1 + imm);        //加立即数
   INSTPAT("0100000 ????? ????? 000 ????? 01100 11", sub    , R, R(rd) = src1 - src2);        //减法
+  INSTPAT("0000001 ????? ????? 000 ????? 01100 11", mul    , R, R(rd) = (uint32_t)((int64_t)(int32_t)src1 * (int64_t)(int32_t)src2));//乘法
+  INSTPAT("0000001 ????? ????? 001 ????? 01100 11", mulh   , R, R(rd) = (uint32_t)(((int64_t)(int32_t)src1 * (int64_t)(int32_t)src2) >> 32));//乘法高位
+  INSTPAT("0000001 ????? ????? 010 ????? 01100 11", mulhsu , R, R(rd) = (uint32_t)(((int64_t)(int32_t)src1 * (uint64_t)(uint32_t)src2) >> 32));//乘法高位（有符号-无符号混合）
+  INSTPAT("0000001 ????? ????? 011 ????? 01100 11", mulhu  , R, R(rd) = (uint32_t)(((uint64_t)(uint32_t)src1 * (uint64_t)(uint32_t)src2) >> 32));//乘法高位（无符号）
+  INSTPAT("0000001 ????? ????? 100 ????? 01100 11", div    , R,
+    if ((int32_t)src2 == 0) R(rd) = (word_t)-1;
+    else if ((int32_t)src1 == (int32_t)0x80000000 && (int32_t)src2 == -1) R(rd) = 0x80000000;
+    else R(rd) = (int32_t)src1 / (int32_t)src2
+  );//除
+  INSTPAT("0000001 ????? ????? 101 ????? 01100 11", divu   , R,
+    if ((uint32_t)src2 == 0) R(rd) = (word_t)-1;
+    else R(rd) = (uint32_t)src1 / (uint32_t)src2
+  );//无符号除
+  INSTPAT("0000001 ????? ????? 110 ????? 01100 11", rem    , R,
+    if ((int32_t)src2 == 0) R(rd) = src1;
+    else if ((int32_t)src1 == (int32_t)0x80000000 && (int32_t)src2 == -1) R(rd) = 0;
+    else R(rd) = (int32_t)src1 % (int32_t)src2
+  );//取模
+  INSTPAT("0000001 ????? ????? 111 ????? 01100 11", remu   , R,
+    if ((uint32_t)src2 == 0) R(rd) = src1;
+    else R(rd) = (uint32_t)src1 % (uint32_t)src2
+  );//无符号取模
   INSTPAT("??????? ????? ????? ??? ????? 00101 11", auipc  , U, R(rd) = s->pc + imm );   //pc加高位立即数
   INSTPAT("??????? ????? ????? ??? ????? 01101 11", lui    , U, R(rd) = imm );           //装入高位立即数
   //逻辑
@@ -115,26 +141,27 @@ static int decode_exec(Decode *s) {                                       //译�
   INSTPAT("??????? ????? ????? 101 ????? 11000 11", bge    , B, if ((int32_t)src1 >= (int32_t)src2) s->dnpc = s->pc + imm);        //大于等于则跳转
   INSTPAT("??????? ????? ????? 110 ????? 11000 11", bltu   , B, if (src1 < src2) s->dnpc = s->pc + imm);        //小于则跳转
   INSTPAT("??????? ????? ????? 111 ????? 11000 11", bgeu   , B, if (src1 >= src2) s->dnpc = s->pc + imm);        //大于等于则跳转
+  
   //跳转并链接
-  INSTPAT("??????? ????? ????? ??? ????? 11011 11", jal    , J, R(rd) = s->pc + 4, s->dnpc = s->pc + imm;
-                                                                IFDEF(CONFIG_FTRACE, if(rd == 1){
-                                                                display_call_func(s->pc, s->dnpc);      //调用函数
-                                                                }));                                        //跳转并链接
-  INSTPAT("??????? ????? ????? 000 ????? 11001 11", jalr   , I, R(rd) = s->pc + 4, s->dnpc = (src1 + imm) & ~1;
-                                                                IFDEF(CONFIG_FTRACE, if(rd == 1){
-                                                                  display_call_func(s->pc, s->dnpc);      //调用函数
-                                                                }
-                                                                else if(rd == 0 && src1 == R(1)){
-                                                                  display_ret_func(s->pc);            //返回函数
-                                                                }));                                //寄存器跳转并链接
-  //同步
-  INSTPAT("0000??? ????? 00000 000 00000 00011 11", fence  , I, );            //内存屏障：要求所有​​之前的内存操作​​在​​后续内存操作​​之前完成，避免编译器或 CPU 对内存操作进行乱序优化，保证多核/多线程环境下的内存一致性。
-  INSTPAT("0000000 00000 00000 001 00000 00011 11", fence.i, N, );            //同步指令和数据
-  //环境
-  INSTPAT("0000000 00000 00000 000 00000 11100 11", ecall  , N, NEMUTRAP(s->pc, R(10)));   //环境调用
-  INSTPAT("0000000 00001 00000 000 00000 11100 11", ebreak , N, NEMUTRAP(s->pc, R(10)));   // R(10) is $a0环境断点
+  INSTPAT("??????? ????? ????? ??? ????? 11011 11", jal    , J,
+    R(rd) = s->pc + 4, s->dnpc = s->pc + imm;
+    IFDEF(CONFIG_FTRACE, if(rd == 1){
+    display_call_func(s->pc, s->dnpc);      //调用函数
+    }));//跳转并链接
+  INSTPAT("??????? ????? ????? 000 ????? 11001 11", jalr   , I,
+    R(rd) = s->pc + 4, s->dnpc = (src1 + imm) & ~1;
+    IFDEF(CONFIG_FTRACE, if(rd == 1){
+    display_call_func(s->pc, s->dnpc);      //调用函数
+    }
+    else if(rd == 0 && src1 == R(1)){
+    display_ret_func(s->pc);            //返回函数
+    }));//寄存器跳转并链接
 
-/*
+  //同步
+  INSTPAT("0000??? ????? 00000 000 00000 00011 11", fence  , I, );            //内存屏障，要求所有​​之前的内存操作​​在​​后续内存操作​​之前完成，避免编译器或 CPU 对内存操作进行乱序优化，保证多核/多线程环境下的内存一致性。
+  INSTPAT("0000000 00000 00000 001 00000 00011 11", fence.i, N, );            //同步指令和数据
+
+
   //控制状态寄存器(CSR)
   INSTPAT("??????? ????? ????? 001 ????? 11100 11", csrrw  , I,
   {
@@ -145,34 +172,45 @@ static int decode_exec(Decode *s) {                                       //译�
   INSTPAT("??????? ????? ????? 010 ????? 11100 11", csrrs  , I,
   {
     word_t t = CSRs[imm];
-    CSRs[imm] = t | src1;
+    if (zimm != 0) {
+      CSRs[imm] = t | src1;
+    }
     R(rd) = t;
   }); //读CSR并设置
   INSTPAT("??????? ????? ????? 011 ????? 11100 11", csrrc  , I,
   {
     word_t t = CSRs[imm];
-    CSRs[imm] = t & ~src1;
+    if (zimm != 0) {
+      CSRs[imm] = t & ~src1;
+    }
     R(rd) = t;
   }); //读CSR并清除
   INSTPAT("??????? ????? ????? 101 ????? 11100 11", csrrwi , I,
   {
     R(rd) = CSRs[imm];
-    CSRs[imm] = src1;
-  }); //读写CSR
+    CSRs[imm] = zimm;
+  }); //立即数写CSR
   INSTPAT("??????? ????? ????? 110 ????? 11100 11", csrrsi , I,
   {
     word_t t = CSRs[imm];
-    CSRs[imm] = t | src1;
+    if (zimm != 0) {
+      CSRs[imm] = t | zimm;
+    }
     R(rd) = t;
-  }); //读CSR并设置
+  }); //立即数置位CSR
   INSTPAT("??????? ????? ????? 111 ????? 11100 11", csrrci , I,
   {
     word_t t = CSRs[imm];
-    CSRs[imm] = t & ~src1;
+    if (zimm != 0) {
+      CSRs[imm] = t & ~zimm;
+    }
     R(rd) = t;
-  }); //读CSR并清
-  */
+  }); //立即数清位CSR
 
+  //环境
+  INSTPAT("0011000 00010 00000 000 00000 11100 11", mret   , N, etrace_mret(s->pc, CSRs[CSR_MEPC]); s->dnpc = CSRs[CSR_MEPC]);//从机器模式返回，跳转到mepc寄存器中保存的地址继续执行
+  INSTPAT("0000000 00000 00000 000 00000 11100 11", ecall  , N, s->dnpc = isa_raise_intr(11, s->pc));//随后触发编号为11的异常，dnspc被设置为异常处理程序的入口地址
+  INSTPAT("0000000 00001 00000 000 00000 11100 11", ebreak , N, NEMUTRAP(s->pc, R(10)));   //R(10) is $a0环境断点
 
   
   //取数
@@ -185,47 +223,6 @@ static int decode_exec(Decode *s) {                                       //译�
   INSTPAT("??????? ????? ????? 000 ????? 01000 11", sb     , S, Mw(src1 + imm, 1, src2 & 0xFF));        //存字节
   INSTPAT("??????? ????? ????? 001 ????? 01000 11", sh     , S, Mw(src1 + imm, 2, src2 & 0xFFFF));        //存半字
   INSTPAT("??????? ????? ????? 010 ????? 01000 11", sw     , S, Mw(src1 + imm, 4, src2));        //存字
-
-  //扩展指令
-
-  //乘
-  INSTPAT("0000001 ????? ????? 000 ????? 01100 11", mul    , R, R(rd) = (int32_t)src1 * (int32_t)src2);        //乘法
-  INSTPAT("0000001 ????? ????? 001 ????? 01100 11", mulh   , R, R(rd) = (uint32_t)(((int64_t)(int32_t)src1 * (int64_t)(int32_t)src2) >> 32 ););        //高32位乘法
-  //除
-  INSTPAT("0000001 ????? ????? 100 ????? 01100 11", div    , R, 
-    if (src2 == 0) {
-      R(rd) = UINT32_MAX;                                    // 除数为零
-  } else if ((int32_t)src1 == INT32_MIN && (int32_t)src2 == -1) {
-      R(rd) = src1;                                              // 溢出处理
-  } else {
-      R(rd) = (uint32_t)( (int32_t)src1 / (int32_t)src2 );  // 正常除法
-  }
-  );
-  INSTPAT("0000001 ????? ????? 101 ????? 01100 11", divu   , R, 
-    if (src2 == 0) {
-      R(rd) = UINT32_MAX;                                      // 除数为零
-  } else {
-      R(rd) = (uint32_t)( (uint32_t)src1 / (uint32_t)src2 );  // 正常无符号除法
-  }
-  );
-  //求余数
-  INSTPAT("0000001 ????? ????? 110 ????? 01100 11", rem    , R,
-    if (src2 == 0) { 
-      R(rd) = src1;               // 除数为零，余数 = 被除数
-  } else if ((int32_t)src1 == INT32_MIN && (int32_t)src2 == -1) { 
-      R(rd) = 0;                  // 溢出场景：余数 = 0
-  } else { 
-      R(rd) = (uint32_t)( (int32_t)src1 % (int32_t)src2 );  // 正常取余运算
-  }
-  );
-  INSTPAT("0000001 ????? ????? 111 ????? 01100 11", remu   , R,
-    if (src2 == 0) { 
-      R(rd) = src1;               // 除数为零，余数 = 被除数
-  } else { 
-      R(rd) = (uint32_t)( (uint32_t)src1 % (uint32_t)src2 );  // 正常无符号取余运算
-  }
-  );
-
 
 
   INSTPAT("??????? ????? ????? ??? ????? ????? ??", inv    , N, INV(s->pc));            //inv:表示"若前面所有的模式匹配规则都无法成功匹配, 则将该指令视为非法指令

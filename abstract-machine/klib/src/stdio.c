@@ -121,7 +121,11 @@ static int vsnprintf_internal(char *buf, size_t size, const char *fmt, va_list a
                 if (!s) s = "(null)";
                 
                 //安全复制字符串
-                size_t len = strnlen(s, size - pos - 1);
+                size_t max_copy = (size > pos + 1) ? (size - pos - 1) : 0;
+                size_t len = 0;
+                while (len < max_copy && s[len] != '\0') {
+                    len++;
+                }
                 strncpy(buf + pos, s, len);
                 pos += len;
                 break;

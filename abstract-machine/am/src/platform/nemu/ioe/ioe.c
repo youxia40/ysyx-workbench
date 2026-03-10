@@ -1,10 +1,13 @@
 #include <am.h>
 #include <klib-macros.h>
+#include <nemu.h>
 
 void __am_timer_init();//定时器初始化
 void __am_gpu_init();//图形处理单元初始化
 void __am_audio_init();//音频初始化
 void __am_input_keybrd(AM_INPUT_KEYBRD_T *);//键盘输入
+void __am_uart_tx(AM_UART_TX_T *);//串口输出
+void __am_uart_rx(AM_UART_RX_T *);//串口输入
 void __am_timer_rtc(AM_TIMER_RTC_T *);//实时时钟
 void __am_timer_uptime(AM_TIMER_UPTIME_T *);//定时器相关
 void __am_gpu_config(AM_GPU_CONFIG_T *);//图形处理单元配置
@@ -20,8 +23,16 @@ void __am_disk_blkio(AM_DISK_BLKIO_T *io);//磁盘块输入输出
 
 static void __am_timer_config(AM_TIMER_CONFIG_T *cfg) { cfg->present = true; cfg->has_rtc = true; }
 static void __am_input_config(AM_INPUT_CONFIG_T *cfg) { cfg->present = true;  }
-static void __am_uart_config(AM_UART_CONFIG_T *cfg)   { cfg->present = false; }
+static void __am_uart_config(AM_UART_CONFIG_T *cfg)   { cfg->present = true; }
 static void __am_net_config (AM_NET_CONFIG_T *cfg)    { cfg->present = false; }
+
+void __am_uart_tx(AM_UART_TX_T *uart) {
+  outb(SERIAL_PORT, uart->data);
+}
+
+void __am_uart_rx(AM_UART_RX_T *uart) {
+  uart->data = inb(SERIAL_PORT);
+}
 
 typedef void (*handler_t)(void *buf);
 static void *lut[128] = {
@@ -34,6 +45,8 @@ static void *lut[128] = {
   [AM_GPU_FBDRAW  ] = __am_gpu_fbdraw,//帧缓冲区绘制
   [AM_GPU_STATUS  ] = __am_gpu_status,//图形处理单元状态
   [AM_UART_CONFIG ] = __am_uart_config,//串口配置
+  [AM_UART_TX     ] = __am_uart_tx,//串口输出
+  [AM_UART_RX     ] = __am_uart_rx,//串口输入
   [AM_AUDIO_CONFIG] = __am_audio_config,//音频配置
   [AM_AUDIO_CTRL  ] = __am_audio_ctrl,//音频控制
   [AM_AUDIO_STATUS] = __am_audio_status,//音频状态

@@ -29,43 +29,74 @@ f(30) f(31)
 #define REGS(f) REGS_LO16(f) REGS_HI16(f)
 
 #define PUSH(n) STORE concat(x, n), (n * XLEN)(sp);
+/*PUSH(n)把各个xN存到sp+n*XLEN，所以上下文起始区域天然就是一整段连续的通用寄存器*/
+/*故/home/pz40/ysyx-workbench/abstract-machine/am/include/arch/riscv.h的结构体中gpr优先*/
+
 #define POP(n)  LOAD  concat(x, n), (n * XLEN)(sp);
 
-#define CONTEXT_SIZE  ((NR_REGS + 3) * XLEN)
+#define CONTEXT_SIZE  ((NR_REGS + 4) * XLEN)
 #define OFFSET_SP     ( 2 * XLEN)
 #define OFFSET_CAUSE  ((NR_REGS + 0) * XLEN)
 #define OFFSET_STATUS ((NR_REGS + 1) * XLEN)
 #define OFFSET_EPC    ((NR_REGS + 2) * XLEN)
+#define OFFSET_PDIR   ((NR_REGS + 3) * XLEN)
 
 .align 3
 .globl __am_asm_trap
+/*异常入口函数负责保存现场并调用__am_irq_handle处理事件*/
+
 __am_asm_trap:
   addi sp, sp, -CONTEXT_SIZE
 
   MAP(REGS, PUSH)
 
+
+  /*把“陷入前的原始sp”写到gpr[2]*/
+  addi t0, sp, CONTEXT_SIZE
+  STORE t0, OFFSET_SP(sp)
+
   csrr t0, mcause
   csrr t1, mstatus
   csrr t2, mepc
 
+
   STORE t0, OFFSET_CAUSE(sp)
   STORE t1, OFFSET_STATUS(sp)
   STORE t2, OFFSET_EPC(sp)
+  STORE zero, OFFSET_PDIR(sp)
+  /*pdir先置0，只保证字段合法可读*/
 
   # set mstatus.MPRV to pass difftest
   li a0, (1 << 17)
   or t1, t1, a0
   csrw mstatus, t1
 
-  mv a0, sp
-  call __am_irq_handle
 
+
+  /*把这帧地址当Context*传给C*/
+  mv a0, sp
+  /*先保存现场并把sp即（Context*）放到a0*/
+  call __am_irq_handle
+  /*处理事件*/
+
+
+  mv sp, a0
+  /*将栈顶指针切换到新进程的上下文结构*/
+  /*使用__am_irq_handle返回的Context*作为恢复基址，支持调度切换。恢复阶段按返回的Context指针执行，这样user_handler返回新上下文时就会切过去*/
+
+
+  /*从当前要恢复的Context里取回CSR值*/
   LOAD t1, OFFSET_STATUS(sp)
   LOAD t2, OFFSET_EPC(sp)
-  csrw mstatus, t1
-  csrw mepc, t2
+  
 
+  /*恢复异常状态*/
+  csrw mstatus, t1
+  /*恢复异常地址*/
+  csrw mepc, t2
+  /*恢复x寄存器*/
   MAP(REGS, POP)
 
+  /*恢复上下文*/
   addi sp, sp, CONTEXT_SIZE
   mret

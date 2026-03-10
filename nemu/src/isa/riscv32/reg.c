@@ -16,6 +16,8 @@
 #include <isa.h>
 #include "local-include/reg.h"
 
+word_t CSRs[4096] = {};//CSR寄存器数组
+
 const char *regs[] = {
   "$0", "ra", "sp", "gp", "tp", "t0", "t1", "t2",
   "s0", "s1", "a0", "a1", "a2", "a3", "a4", "a5",

@@ -25,6 +25,15 @@ static inline int check_reg_idx(int idx) {
 
 #define gpr(idx) (cpu.gpr[check_reg_idx(idx)])
 
+enum {//CSR寄存器编号（都属于M级，地址高两位为11）
+  CSR_MSTATUS = 0x300,
+  CSR_MTVEC = 0x305,//机器模式下存储中断处理程序的基地址和模式
+  CSR_MEPC = 0x341,
+  CSR_MCAUSE  = 0x342,
+};
+
+extern word_t CSRs[4096];//CSR编号是12位，范围正好0~4095，用数组来存储所有CSR寄存器的值，CSRs[CSR_MSTATUS]就能访问mstatus寄存器的值
+
 static inline const char* reg_name(int idx) {
   extern const char* regs[];
   return regs[check_reg_idx(idx)];

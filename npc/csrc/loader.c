@@ -6,8 +6,7 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 
-//加载ELF文件到NPC内存，并记录入口地址
-void npc_load_elf(NPCContext* ctx, const char* elf_path) {
+void npc_load_elf(NPCContext* ctx, const char* elf_path) {//加载ELF文件到NPC内存，并记录入口地址
 #if NPC_ENABLE_ASSERT
     assert(ctx != NULL);
     assert(elf_path != NULL);
@@ -104,7 +103,7 @@ void npc_load_image(NPCContext* ctx, const char* image_path) {
         exit(1);
     }
 
-    uint8_t magic[4] = {0};//读取前4字节用于识别ELF格式
+    uint8_t magic[4] = {0};//读取前4字节用于识别格式
     ssize_t nread = read(fd, magic, sizeof(magic));//读取文件前4字节到magic数组
     if (nread < 0) {
         perror("Failed to read image header");
@@ -115,8 +114,11 @@ void npc_load_image(NPCContext* ctx, const char* image_path) {
 
     bool is_elf = (nread == 4 && magic[0] == 0x7f && magic[1] == 'E' && magic[2] == 'L' && magic[3] == 'F');
     //ELF文件以0x7f 'E' 'L' 'F'开头，如果前4字节匹配则视为ELF格式
-
+    //在ELF头数据结构中，e_ident是16字节数组，最开始4字节是魔数，第一字节为0x7F,后三字节为“E”“L”“F”，其后12字节信息主要包含标志信息，如32/64位、字节序等；
+    //我NPC通过前4字节识别是否为ELF格式（-----见绿书P188-----）
     
+
+
     if (is_elf) {//如果是ELF格式
         //命中ELF后直接走段装载流程，BIN路径不再执行
         npc_load_elf(ctx, image_path);

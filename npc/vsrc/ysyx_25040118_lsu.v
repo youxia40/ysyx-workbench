@@ -13,29 +13,29 @@ module ysyx_25040118_lsu (//访存单元,处理Load/Store并与DPI内存接口�
     parameter VIRT_MEM_BASE = 32'h80000000;
 
 `ifndef SYNTHESIS
-    import "DPI-C" function int  npc_pmem_read (input int raddr);
+    import "DPI-C" function int npc_pmem_read (input int raddr);
     import "DPI-C" function void npc_pmem_write(input int waddr, input int wdata, input byte wmask);
 `endif
 
-    reg        mem_we;
+    reg mem_we;//写使能信号,store时有效
     reg [31:0] virt_addr;
     reg [31:0] mem_wdata;
-    reg [3:0]  mem_wmask;
+    reg [3:0] mem_wmask;
     reg [31:0] mem_rdata;
 
-    wire [1:0] lane         = virt_addr[1:0];//字节通道选择
-    wire [31:0] aligned_v   = {virt_addr[31:2], 2'b00};//按word对齐地址
-    wire [31:0] phys_addr   = aligned_v - VIRT_MEM_BASE;//转换成DPI偏移地址
+    wire [1:0] lane = virt_addr[1:0];//字节通道选择
+    wire [31:0] aligned_v = {virt_addr[31:2], 2'b00};//按word对齐地址
+    wire [31:0] phys_addr = aligned_v - VIRT_MEM_BASE;//转换成DPI偏移地址
 
 
     always @(*) begin
-        mem_we    = 1'b0;
+        mem_we = 1'b0;
         virt_addr = 32'b0;
         mem_wdata = 32'b0;
         mem_wmask = 4'b0000;
 
         if (is_store) begin//Store阶段生成写掩码和写数据
-            mem_we    = 1'b1;
+            mem_we = 1'b1;
             virt_addr = src1 + imm;
 
             case (inst[14:12])

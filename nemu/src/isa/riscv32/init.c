@@ -15,6 +15,7 @@
 
 #include <isa.h>
 #include <memory/paddr.h>
+#include "local-include/reg.h"
 
 // this is not consistent with uint8_t
 // but it is ok since we do not access the array directly
@@ -26,12 +27,15 @@ static const uint32_t img [] = {
   0xdeadbeef,  // some data
 };
 
-static void restart() {
+static void restart() {//重置CPU状态
   /* Set the initial program counter. */
   cpu.pc = RESET_VECTOR;
 
   /* The zero register is always 0. */
   cpu.gpr[0] = 0;
+
+
+  CSRs[CSR_MSTATUS] = 0x1800;//为了让DiffTest机制正确工作，将mstatus初始化为0x1800
 }
 
 void init_isa() {

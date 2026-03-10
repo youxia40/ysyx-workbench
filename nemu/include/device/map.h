@@ -21,7 +21,7 @@
 typedef void(*io_callback_t)(uint32_t, int, bool);
 uint8_t* new_space(int size);
 
-typedef struct {  //IO映射结构体
+typedef struct {  //IO映射结构体，完整的IO映射信息包括设备名称、地址范围、设备空间指针和访问回调函数
   const char *name;
   // we treat ioaddr_t as paddr_t here
   paddr_t low;

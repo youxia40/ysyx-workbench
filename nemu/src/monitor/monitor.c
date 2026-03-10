@@ -129,16 +129,16 @@ void init_monitor(int argc, char *argv[]) {                                     
   init_log(log_file); 
 
   /* Initialize memory. */
-  init_mem();                                               //生成内存（位于paddr.c文件）
+  init_mem();                            //生成内存（位于paddr.c文件）
 
   /* Initialize devices. */
-  IFDEF(CONFIG_DEVICE, init_device());                          //初始化设备，位于device.c文件
+  IFDEF(CONFIG_DEVICE, init_device());                //初始化设备，位于device.c文件
 
   /* Perform ISA dependent initialization. */
-  init_isa();                                                    //初始化ISA                     
+  init_isa();                   //初始化ISA                     
 
   /* Load the image to memory. This will overwrite the built-in image. */
-  long img_size = load_img();                                           //指定加载镜像文件，位于monitor.c
+  long img_size = load_img();               //指定加载镜像文件，位于monitor.c
 
   /* Initialize differential testing. */
   init_difftest(diff_so_file, img_size, difftest_port);
@@ -146,7 +146,7 @@ void init_monitor(int argc, char *argv[]) {                                     
   /* Initialize the simple debugger. */
   init_sdb();
 
-  IFDEF(CONFIG_ITRACE, init_disasm());                          //初始化反汇编器，位于disasm.c文件
+  IFDEF(CONFIG_ITRACE, init_disasm());        //初始化反汇编器，位于disasm.c文件
 
   /* Display welcome message. */
   welcome();

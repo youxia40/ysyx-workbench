@@ -25,7 +25,7 @@ SECTIONS {
     *(.scommon)
   }
   _stack_top = ALIGN(0x1000);
-  . = _stack_top + 0x8000;
+  . = _stack_top + 0x8000;/*32KB的栈空间，链接脚本里操作的是地址偏移，地址最小单位就是字节不是位*/
   _stack_pointer = .;
   end = .;
   _end = .;

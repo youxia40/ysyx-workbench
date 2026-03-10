@@ -1,5 +1,6 @@
 #include <am.h>//IOE分发表实现,把AM寄存器访问路由到对应设备处理函数
 #include <klib-macros.h>
+#include <npc.h>
 
 void __am_timer_init();//初始化定时器相关状态
 
@@ -10,10 +11,18 @@ void __am_gpu_init();//初始化GPU
 void __am_gpu_config(AM_GPU_CONFIG_T *);//读取GPU配置
 void __am_gpu_status(AM_GPU_STATUS_T *);//读取GPU状态
 void __am_gpu_fbdraw(AM_GPU_FBDRAW_T *);//执行帧缓冲绘制
+void __am_uart_tx(AM_UART_TX_T *);//串口输出
+void __am_uart_rx(AM_UART_RX_T *);//串口输入
 
 static void __am_timer_config(AM_TIMER_CONFIG_T *cfg) { cfg->present = true; cfg->has_rtc = true; }//声明NPC存在定时器且支持rtc寄存器
 static void __am_input_config(AM_INPUT_CONFIG_T *cfg) { cfg->present = true;  }//声明NPC存在输入设备接口
-static void __am_uart_config(AM_UART_CONFIG_T *cfg)   { cfg->present = false; }//与NEMU一致,IOE层不暴露UART设备
+static void __am_uart_config(AM_UART_CONFIG_T *cfg)   { cfg->present = true; }//NPC暴露UART设备供RTT控制台输入输出
+static void __am_audio_config(AM_AUDIO_CONFIG_T *cfg) { cfg->present = false; }//当前NPC未提供音频设备
+static void __am_disk_config(AM_DISK_CONFIG_T *cfg)   { cfg->present = false; }//当前NPC未提供磁盘设备
+static void __am_net_config(AM_NET_CONFIG_T *cfg)     { cfg->present = false; }//当前NPC未提供网络设备
+
+void __am_uart_tx(AM_UART_TX_T *uart) { outb(SERIAL_PORT, (uint8_t)uart->data); }
+void __am_uart_rx(AM_UART_RX_T *uart) { uart->data = (char)inb(SERIAL_PORT); }
 
 typedef void (*handler_t)(void *buf);//统一的设备处理函数签名
 static void *lut[128] = {//IOE查找表:索引=AM_DEVREG编号,值=对应处理函数
@@ -26,6 +35,11 @@ static void *lut[128] = {//IOE查找表:索引=AM_DEVREG编号,值=对应处理�
   [AM_GPU_FBDRAW  ] = __am_gpu_fbdraw,//帧缓冲区绘制
   [AM_GPU_STATUS  ] = __am_gpu_status,//图形处理单元状态
   [AM_UART_CONFIG]  = __am_uart_config,//串口配置
+  [AM_UART_TX    ]  = __am_uart_tx,//串口输出
+  [AM_UART_RX    ]  = __am_uart_rx,//串口输入
+  [AM_AUDIO_CONFIG] = __am_audio_config,//音频配置
+  [AM_DISK_CONFIG ] = __am_disk_config,//磁盘配置
+  [AM_NET_CONFIG  ] = __am_net_config,//网络配置
 };
 
 static void fail(void *buf) { panic("access nonexist register"); }//未实现寄存器访问统一报错

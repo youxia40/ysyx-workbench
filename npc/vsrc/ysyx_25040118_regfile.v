@@ -1,4 +1,4 @@
-module ysyx_25040118_regfile (//寄存器堆:维护RV32E通用寄存器读写
+module ysyx_25040118_regfile (
     input clk,
     input rst,
     input stop,

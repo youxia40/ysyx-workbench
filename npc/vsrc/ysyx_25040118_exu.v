@@ -20,7 +20,7 @@ module ysyx_25040118_exu (//执行单元,负责ALU运算/分支跳转/系统指�
     output reg [31:0] result,
     input [31:0] lsu_load_data,//LSU的load结果
     output reg [31:0] next_pc,
-    input         ebreak
+    input ebreak
 );
 
     `ifndef SYNTHESIS//综合不使用
@@ -28,17 +28,17 @@ module ysyx_25040118_exu (//执行单元,负责ALU运算/分支跳转/系统指�
     import "DPI-C" function void npc_ftrace_log(
         input longint unsigned pc,
         input longint unsigned target_pc,
-        input int              is_call
+        input int is_call
     );
     `endif
 
     //提前解码rd和rs1,后续用于识别call/ret模式
-    wire [4:0] rd  = inst[11:7];
+    wire [4:0] rd = inst[11:7];
     wire [4:0] rs1 = inst[19:15];
 
     //跳转目标地址计算,jal为pc相对,jalr为寄存器相对并清除最低位
-    wire [31:0] jal_target   = pc + imm;
-    wire [31:0] jalr_target  = (src1 + imm) & ~32'h1;
+    wire [31:0] jal_target = pc + imm;
+    wire [31:0] jalr_target = (src1 + imm) & ~32'h1;
 
     //下一条PC选择优先级:jal>jalr>branch>pc+4
     always @(*) begin
@@ -52,18 +52,18 @@ module ysyx_25040118_exu (//执行单元,负责ALU运算/分支跳转/系统指�
         end
         else if (is_branch) begin
             case (inst[14:12])
-                3'b000: next_pc = (src1 == src2)                   ? (pc + imm) : (pc + 4); //beq
-                3'b001: next_pc = (src1 != src2)                   ? (pc + imm) : (pc + 4); //bne
-                3'b100: next_pc = ($signed(src1) < $signed(src2))  ? (pc + imm) : (pc + 4); //blt
+                3'b000: next_pc = (src1 == src2) ? (pc + imm) : (pc + 4); //beq
+                3'b001: next_pc = (src1 != src2) ? (pc + imm) : (pc + 4); //bne
+                3'b100: next_pc = ($signed(src1) < $signed(src2)) ? (pc + imm) : (pc + 4); //blt
                 3'b101: next_pc = ($signed(src1) >= $signed(src2)) ? (pc + imm) : (pc + 4); //bge
-                3'b110: next_pc = (src1 < src2)                    ? (pc + imm) : (pc + 4); //bltu
-                3'b111: next_pc = (src1 >= src2)                   ? (pc + imm) : (pc + 4); //bgeu
+                3'b110: next_pc = (src1 < src2) ? (pc + imm) : (pc + 4); //bltu
+                3'b111: next_pc = (src1 >= src2) ? (pc + imm) : (pc + 4); //bgeu
                 default: next_pc = pc + 4;
             endcase
         end
     end
 
-    //ftrace调用策略:
+    //ftrace调用:
     //1)jal且rd!=x0视为调用
     //2)jalr且rd=x0,rs1=ra,imm=0视为返回
     //3)其余jalr且rd!=x0视为调用

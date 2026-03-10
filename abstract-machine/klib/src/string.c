@@ -14,6 +14,7 @@ size_t strlen(const char *s) {
     return end - s;
 }
 
+#if (!defined(__RTTHREAD__) && !defined(__KLIB_DISABLE_STRNLEN__) && !defined(__ARCH_RISCV32_NEMU) && !defined(__ARCH_RISCV32E_NPC)) || defined(__RTTHREAD_USE_KLIB__)
 size_t strnlen(const char *s, size_t maxlen) {
     if (!s) return 0;
     size_t len = 0;
@@ -22,6 +23,7 @@ size_t strnlen(const char *s, size_t maxlen) {
     }
     return len;
 }
+#endif
 
 char *strcpy(char *dst, const char *src) {
     if (!src || !dst) return NULL;

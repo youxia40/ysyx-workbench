@@ -16,6 +16,9 @@
 #include <device/map.h>
 #include <memory/paddr.h>
 
+extern void dtrace_read(paddr_t addr, int len, const char *dev);
+extern void dtrace_write(paddr_t addr, int len, word_t data, const char *dev);
+
 #define NR_MAP 16
 
 static IOMap maps[NR_MAP] = {};
@@ -55,9 +58,17 @@ void add_mmio_map(const char *name, paddr_t addr, void *space, uint32_t len, io_
 
 /* bus interface */
 word_t mmio_read(paddr_t addr, int len) {//总线访问MMIO设备的接口,会被npc_pmem_read/write调用
-  return map_read(addr, len, fetch_mmio_map(addr));
+  IOMap *map = fetch_mmio_map(addr);//根据访问地址查找对应的MMIO映射
+#ifdef CONFIG_DTRACE
+  dtrace_read(addr, len, map ? map->name : NULL);
+#endif
+  return map_read(addr, len, map);
 }
 
 void mmio_write(paddr_t addr, int len, word_t data) {
-  map_write(addr, len, data, fetch_mmio_map(addr));
+  IOMap *map = fetch_mmio_map(addr);
+#ifdef CONFIG_DTRACE
+  dtrace_write(addr, len, data, map ? map->name : NULL);
+#endif
+  map_write(addr, len, data, map);
 }
