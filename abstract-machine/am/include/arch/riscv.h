@@ -8,7 +8,7 @@
 #endif
 
 
-//Context 不是“临时struct拷贝”，而是trap.S在栈上按约定布局直接构造出来的一块内存
+//Context不是“临时struct拷贝”，而是trap.S在栈上按约定布局直接构造出来的一块内存
 //不是先构造再拷贝，而是trap.S在栈上按布局直接“摆”出来，然后C代码把这块内存当Context*解读,布局由trap.S的offset宏落实
 struct Context {//处理器上下文结构体
   // TODO: fix the order of these members to match trap.S

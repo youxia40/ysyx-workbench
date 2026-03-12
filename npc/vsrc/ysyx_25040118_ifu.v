@@ -1,4 +1,4 @@
-module ysyx_25040118_ifu (//取指单元,根据PC读取指令并输出给译码级
+module ysyx_25040118_ifu (
     input clk,
     input rst,
     input stop,
@@ -7,7 +7,7 @@ module ysyx_25040118_ifu (//取指单元,根据PC读取指令并输出给译码�
     output [31:0] inst
 );
     parameter VIRT_MEM_BASE = 32'h80000000;//虚拟地址基址
-    parameter PHYS_MEM_SIZE = 32'h08000000;//可访问物理空间大小
+    parameter PHYS_MEM_SIZE = 32'h08000000;//物理内存大小128MB
 
     `ifndef SYNTHESIS
     //仿真态通过DPI读取内存,综合态不使用该接口
@@ -29,9 +29,9 @@ module ysyx_25040118_ifu (//取指单元,根据PC读取指令并输出给译码�
         end
     end
 
-    assign pc = pc_reg;//导出当前PC给后级与调试端口
+    assign pc = pc_reg;//输出当前PC值
 
-    //取指策略:地址合法则读内存,否则注入NOP防止异常扩散
+    //地址合法时通过DPI接口读取内存,否则输出NOP指令(ADDI x0,x0,0)
     `ifndef SYNTHESIS
     assign inst = valid_addr ? npc_pmem_read(phys_addr) : 32'h00000013;     //NOP
     `else

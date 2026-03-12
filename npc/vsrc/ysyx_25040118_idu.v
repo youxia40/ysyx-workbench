@@ -1,4 +1,4 @@
-module ysyx_25040118_idu (//译码单元:把指令字段展开为控制信号
+module ysyx_25040118_idu (
     input clk,
     input rst,
     input stop,
@@ -18,7 +18,16 @@ module ysyx_25040118_idu (//译码单元:把指令字段展开为控制信号
     output reg is_system,
     output reg is_auipc,
     output reg is_lui,
-    output reg is_alu_imm
+    output reg is_alu_imm,
+
+    output reg is_csrrw,
+    output reg is_csrrs,
+    output reg is_csrrc,
+    output reg is_csrrwi,
+    output reg is_csrrsi,
+    output reg is_csrrci,
+    output reg is_mret,
+    output reg is_ecall
 );
 
     //寄存器索引只使用x0~x15(RV32E)
@@ -61,6 +70,14 @@ module ysyx_25040118_idu (//译码单元:把指令字段展开为控制信号
         is_jal = 1'b0;
         is_jalr = 1'b0;
         is_system = 1'b0;
+        is_csrrw = 1'b0;
+        is_csrrs = 1'b0;
+        is_csrrc = 1'b0;
+        is_csrrwi = 1'b0;
+        is_csrrsi = 1'b0;
+        is_csrrci = 1'b0;
+        is_mret = 1'b0;
+        is_ecall = 1'b0;
         is_auipc = 1'b0;
         is_lui = 1'b0;
         is_alu_imm = 1'b0;
@@ -185,6 +202,7 @@ module ysyx_25040118_idu (//译码单元:把指令字段展开为控制信号
             //ecall
             32'b0000000_00000_00000_000_00000_1110011: begin
                 is_system = 1'b1;
+                is_ecall = 1'b1;
                 ebreak = 1'b0;
             end
 
@@ -192,6 +210,38 @@ module ysyx_25040118_idu (//译码单元:把指令字段展开为控制信号
             32'b0000000_00001_00000_000_00000_1110011: begin
                 is_system = 1'b1;
                 ebreak = 1'b1;
+            end
+
+            //mret
+            32'b0011000_00010_00000_000_00000_1110011: begin
+                is_system = 1'b1;
+                is_mret = 1'b1;
+            end
+
+            //csrrw/csrrs/csrrc/csrrwi/csrrsi/csrrci
+            32'b???????_?????_?????_001_?????_1110011: begin
+                is_system = 1'b1;
+                is_csrrw = 1'b1;
+            end
+            32'b???????_?????_?????_010_?????_1110011: begin
+                is_system = 1'b1;
+                is_csrrs = 1'b1;
+            end
+            32'b???????_?????_?????_011_?????_1110011: begin
+                is_system = 1'b1;
+                is_csrrc = 1'b1;
+            end
+            32'b???????_?????_?????_101_?????_1110011: begin
+                is_system = 1'b1;
+                is_csrrwi = 1'b1;
+            end
+            32'b???????_?????_?????_110_?????_1110011: begin
+                is_system = 1'b1;
+                is_csrrsi = 1'b1;
+            end
+            32'b???????_?????_?????_111_?????_1110011: begin
+                is_system = 1'b1;
+                is_csrrci = 1'b1;
             end
 
             //Load指令

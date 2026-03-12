@@ -22,7 +22,7 @@
 /* http://en.wikibooks.org/wiki/Serial_Programming/8250_UART_Programming */
 // NOTE: this is compatible to 16550
 
-#define CH_OFFSET 0
+#define CH_OFFSET 0//串口数据寄存器偏移地址
 
 static uint8_t *serial_base = NULL;//串口设备基地址指针
 

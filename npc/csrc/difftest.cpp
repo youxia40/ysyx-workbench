@@ -32,6 +32,37 @@ typedef struct {
     uint32_t pc;//当前PC
 } DifftestCPUState;
 
+static inline int32_t sext32(uint32_t val, int bits) {
+    uint32_t m = 1u << (bits - 1);
+    return (int32_t)((val ^ m) - m);
+}
+
+static inline bool is_mmio_addr(uint32_t addr) {
+    //AM常用MMIO空间: 0xa0000000~0xa1ffffff
+    return addr >= 0xa0000000u && addr < 0xa2000000u;
+}
+
+static bool is_mmio_ls_inst(uint32_t inst, const uint32_t gpr[32]) {
+    uint32_t opcode = inst & 0x7fu;
+    if (opcode != 0x03u && opcode != 0x23u) {
+        return false;
+    }
+
+    uint32_t rs1 = (inst >> 15) & 0x1fu;
+    uint32_t base = gpr[rs1];
+
+    int32_t imm = 0;
+    if (opcode == 0x03u) { // load, I-type
+        imm = sext32((inst >> 20) & 0xfffu, 12);
+    } else { // store, S-type
+        uint32_t simm = ((inst >> 25) << 5) | ((inst >> 7) & 0x1fu);
+        imm = sext32(simm & 0xfffu, 12);
+    }
+
+    uint32_t addr = base + (uint32_t)imm;
+    return is_mmio_addr(addr);
+}
+
 
 //从NPC上下文收集CPU状态到DifftestCPUState结构体
 static void npc_collect_cpu_state(DifftestCPUState *st, NPCContext *ctx) {
@@ -58,15 +89,21 @@ static void npc_collect_cpu_state(DifftestCPUState *st, NPCContext *ctx) {
 
 //尝试打开NEMU共享库，返回
 static void* try_open_so(const char **used_path) {
-    //固定使用 ysyx-workbench 下 NEMU 的构建产物,不接受环境变量覆盖
-    static const char* REFPATH = "/home/pz40/ysyx-workbench/nemu/build/riscv32-nemu-interpreter-so";
-    void *handle = dlopen(REFPATH, RTLD_LAZY);//加载动态库
-    if (handle) {
-        *used_path = REFPATH;
-        return handle;
+    //优先匹配RV32E参考模型,再回退到RV32I参考模型
+    static const char* REF_CANDIDATES[] = {
+        "/home/pz40/ysyx-workbench/nemu/build/riscv32e-nemu-interpreter-so",
+        "/home/pz40/ysyx-workbench/nemu/build/riscv32-nemu-interpreter-so",
+    };
+
+    for (size_t i = 0; i < sizeof(REF_CANDIDATES) / sizeof(REF_CANDIDATES[0]); i++) {
+        void *handle = dlopen(REF_CANDIDATES[i], RTLD_LAZY);//加载动态库
+        if (handle) {
+            *used_path = REF_CANDIDATES[i];
+            return handle;
+        }
     }
 
-    *used_path = REFPATH;//即使加载失败也记录尝试过的路径方便错误排查
+    *used_path = REF_CANDIDATES[0];//记录首选路径,便于报错定位
     return nullptr;
 }
 
@@ -84,8 +121,11 @@ void difftest_init(NPCContext* ctx) {
         char cwd_buf[512];
         const char *cwd = getcwd(cwd_buf, sizeof(cwd_buf));
         fprintf(stderr,
-                "DiffTest: failed to load NEMU shared object.\n""Current working directory: %s\n""Fixed path:\n"
-                "  /home/pz40/ysyx-workbench/nemu/build/riscv32-nemu-interpreter-so\n",cwd ? cwd : "(unknown)");
+            "DiffTest: failed to load NEMU shared object.\n""Current working directory: %s\n"
+            "Tried paths:\n"
+            "  /home/pz40/ysyx-workbench/nemu/build/riscv32e-nemu-interpreter-so\n"
+            "  /home/pz40/ysyx-workbench/nemu/build/riscv32-nemu-interpreter-so\n",
+            cwd ? cwd : "(unknown)");
 
         exit(1);
     }
@@ -135,7 +175,7 @@ void difftest_init(NPCContext* ctx) {
 
 // 执行一步difftest并比较状态
 void difftest_step(NPCContext* ctx) {
-    if (!ctx->debug.difftest_enabled) {
+    if (!ctx->debug.difftest_enabled) {//
         return;
     }
     if (!ref_handle) {
@@ -143,15 +183,26 @@ void difftest_step(NPCContext* ctx) {
     }
 
     //捕捉当前指令引起的状态变化，先保存执行前的状态，再执行REF，最后保存执行后的状态进行比较
-    DifftestCPUState ref_before{};//执行前的REF状态
+    DifftestCPUState ref_before{};//执行前的REF状态，主要用于记录触发状态变化的指令PC,便于后续定位问题指令
     ref_regcpy(&ref_before, DIFFTEST_TO_DUT);//先把REF当前寄存器态同步到DUT,便于后面比较
     //先抓ref_before.pc,用于把后续不一致精准定位到“哪一条指令”触发
+
+    //对MMIO的load/store不在REF执行，避免NEMU断言退出
+    if (ref_before.pc >= MEM_BASE && ref_before.pc < MEM_BASE + MEM_SIZE) {
+        uint32_t inst = (uint32_t)npc_pmem_read(ref_before.pc - MEM_BASE);
+        if (is_mmio_ls_inst(inst, ref_before.gpr)) {
+            DifftestCPUState dut_after{};
+            npc_collect_cpu_state(&dut_after, ctx);
+            ref_regcpy(&dut_after, DIFFTEST_TO_REF);
+            return;
+        }
+    }
 
 
     ref_exec(1);
 
 
- 
+
     DifftestCPUState ref_after{};//执行后的REF状态
     ref_regcpy(&ref_after, DIFFTEST_TO_DUT);
 

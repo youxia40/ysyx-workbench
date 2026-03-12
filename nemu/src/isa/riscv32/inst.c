@@ -82,6 +82,7 @@ static int decode_exec(Decode *s) {                                       //译�
 }
 
   word_t zimm = BITS(s->isa.inst, 19, 15);
+  word_t csr  = BITS(s->isa.inst, 31, 20);
 
   INSTPAT_START();                         //INSTPAT意思是instruction pattern，是一个宏(在nemu/include/cpu/decode.h中定义), 用于定义一条模式匹配规则
 
@@ -165,44 +166,44 @@ static int decode_exec(Decode *s) {                                       //译�
   //控制状态寄存器(CSR)
   INSTPAT("??????? ????? ????? 001 ????? 11100 11", csrrw  , I,
   {
-    word_t t = CSRs[imm];
-    CSRs[imm] = src1;
+    word_t t = CSRs[csr];
+    CSRs[csr] = src1;
     R(rd) = t;
   }); //读写CSR
   INSTPAT("??????? ????? ????? 010 ????? 11100 11", csrrs  , I,
   {
-    word_t t = CSRs[imm];
+    word_t t = CSRs[csr];
     if (zimm != 0) {
-      CSRs[imm] = t | src1;
+      CSRs[csr] = t | src1;
     }
     R(rd) = t;
   }); //读CSR并设置
   INSTPAT("??????? ????? ????? 011 ????? 11100 11", csrrc  , I,
   {
-    word_t t = CSRs[imm];
+    word_t t = CSRs[csr];
     if (zimm != 0) {
-      CSRs[imm] = t & ~src1;
+      CSRs[csr] = t & ~src1;
     }
     R(rd) = t;
   }); //读CSR并清除
   INSTPAT("??????? ????? ????? 101 ????? 11100 11", csrrwi , I,
   {
-    R(rd) = CSRs[imm];
-    CSRs[imm] = zimm;
+    R(rd) = CSRs[csr];
+    CSRs[csr] = zimm;
   }); //立即数写CSR
   INSTPAT("??????? ????? ????? 110 ????? 11100 11", csrrsi , I,
   {
-    word_t t = CSRs[imm];
+    word_t t = CSRs[csr];
     if (zimm != 0) {
-      CSRs[imm] = t | zimm;
+      CSRs[csr] = t | zimm;
     }
     R(rd) = t;
   }); //立即数置位CSR
   INSTPAT("??????? ????? ????? 111 ????? 11100 11", csrrci , I,
   {
-    word_t t = CSRs[imm];
+    word_t t = CSRs[csr];
     if (zimm != 0) {
-      CSRs[imm] = t & ~zimm;
+      CSRs[csr] = t & ~zimm;
     }
     R(rd) = t;
   }); //立即数清位CSR
@@ -211,7 +212,7 @@ static int decode_exec(Decode *s) {                                       //译�
   INSTPAT("0011000 00010 00000 000 00000 11100 11", mret   , N, etrace_mret(s->pc, CSRs[CSR_MEPC]); s->dnpc = CSRs[CSR_MEPC]);//从机器模式返回，跳转到mepc寄存器中保存的地址继续执行
   INSTPAT("0000000 00000 00000 000 00000 11100 11", ecall  , N, s->dnpc = isa_raise_intr(11, s->pc));//随后触发编号为11的异常，dnspc被设置为异常处理程序的入口地址
   INSTPAT("0000000 00001 00000 000 00000 11100 11", ebreak , N, NEMUTRAP(s->pc, R(10)));   //R(10) is $a0环境断点
-
+  
   
   //取数
   INSTPAT("??????? ????? ????? 000 ????? 00000 11", lb     , I, R(rd) = SEXT(Mr(src1 + imm, 1), 8));        //取字节

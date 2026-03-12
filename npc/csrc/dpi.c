@@ -4,6 +4,7 @@
 #include "ftrace.h"
 #include "itrace.h"
 #include "mtrace.h"
+#include "etrace.h"
 
 //把核心给出的地址转换后分发到MMIO或主存
 int npc_pmem_read(uint32_t paddr) {
@@ -66,7 +67,7 @@ void npc_pmem_write(uint32_t paddr, uint32_t data, uint8_t mask) {
 }
 
 //DPI回写通用寄存器，用于支持ebreak时输出a0值和调试器查看寄存器
-void npc_set_reg(int idx, uint32_t value) {
+void npc_set_reg(int idx, uint32_t value) {//idx是寄存器编号，value是要写入的值
   if (idx < 0 || idx >= REG_NUM) {
     return;
   }
@@ -111,6 +112,9 @@ void npc_itrace_log(uint64_t pc, uint32_t inst) {
   if (npc_ctx.debug.itrace_enabled) {
     itrace_step(&npc_ctx);
   }
+#else
+  (void)pc;
+  (void)inst;
 #endif
 }
 
@@ -138,5 +142,28 @@ void npc_ftrace_log(uint64_t pc, uint64_t target_pc, int is_call) {
   (void)pc;
   (void)target_pc;
   (void)is_call;
+#endif
+}
+
+void npc_etrace_trap(uint32_t no, uint32_t epc, uint32_t handler) {
+#if NPC_ENABLE_ETRACE
+  if (npc_ctx.debug.etrace_enabled) {
+    etrace_trap(no, epc, handler);
+  }
+#else
+  (void)no;
+  (void)epc;
+  (void)handler;
+#endif
+}
+
+void npc_etrace_mret(uint32_t from, uint32_t to) {
+#if NPC_ENABLE_ETRACE
+  if (npc_ctx.debug.etrace_enabled) {
+    etrace_mret(from, to);
+  }
+#else
+  (void)from;
+  (void)to;
 #endif
 }

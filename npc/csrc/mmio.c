@@ -136,9 +136,9 @@ static inline void serial_push_char(char ch){//推入一个字符,缓冲满时�
   assert(serial_buf_len >= 0 && serial_buf_len < (int)sizeof(serial_buf));
 #endif
   serial_buf[serial_buf_len++] = ch;//把字符添加到缓冲区末尾
-  if (serial_buf_len >= (int)sizeof(serial_buf)) {
-    serial_flush();//缓冲区满了就刷新到stdout
-  }
+  
+  //按字符刷新
+  serial_flush();
 }
 
 static inline int run_stty_cmd(const char *cmd) {//执行stty命令以设置或恢复终端属性
@@ -388,10 +388,6 @@ void mmio_write(uint32_t addr_aligned, uint32_t data, uint8_t mask){//MMIO写入
       if (mask & (1u << i)) {//被mask选中的字节才处理
         unsigned ch = (unsigned)((data >> (8 * i)) & 0xffu);
         serial_push_char((char)ch);
-        if (ch == '\n' || ch == '\r' || ch == '\b' || serial_buf_len >= 256) {
-          //遇到行结束/退格或缓冲达到阈值时主动flush，平衡交互实时性与吞吐
-          serial_flush();
-        }
       }
     }
     return;

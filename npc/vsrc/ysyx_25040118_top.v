@@ -1,4 +1,4 @@
-module ysyx_25040118_top (//顶层模块:连接IFU/IDU/EXU/LSU/RegFile并导出调试端口
+module ysyx_25040118_top (
     input clk,
     input rst,
     output [31:0] pc_out,
@@ -7,9 +7,9 @@ module ysyx_25040118_top (//顶层模块:连接IFU/IDU/EXU/LSU/RegFile并导出�
 );
 
 
-    wire [31:0] ifu_pc;      //取指级当前PC
-    wire [31:0] ifu_inst;    //取指级当前指令
-    wire [31:0] exu_next_pc; //执行级给出的下一PC
+    wire [31:0] ifu_pc;//取指级当前PC
+    wire [31:0] ifu_inst;//取指级当前指令
+    wire [31:0] exu_next_pc;//执行级给出的下一PC
 
     wire [4:0] idu_rd;
     wire [4:0] idu_rs1;
@@ -23,6 +23,16 @@ module ysyx_25040118_top (//顶层模块:连接IFU/IDU/EXU/LSU/RegFile并导出�
     wire idu_is_jal;
     wire idu_is_jalr;
     wire idu_is_system;
+
+    wire idu_is_csrrw;
+    wire idu_is_csrrs;
+    wire idu_is_csrrc;
+    wire idu_is_csrrwi;
+    wire idu_is_csrrsi;
+    wire idu_is_csrrci;
+    wire idu_is_mret;
+    wire idu_is_ecall;
+
     wire idu_is_auipc;
     wire idu_is_lui;
     wire idu_is_alu_imm;
@@ -33,7 +43,19 @@ module ysyx_25040118_top (//顶层模块:连接IFU/IDU/EXU/LSU/RegFile并导出�
 
 
     //寄存器写使能:rd非x0且不是store/branch/system指令
-    wire reg_wen = (|idu_rd) && !idu_is_store && !idu_is_branch && !idu_is_system;
+    wire idu_is_csr_any = idu_is_csrrw | idu_is_csrrs | idu_is_csrrc |
+                          idu_is_csrrwi | idu_is_csrrsi | idu_is_csrrci;
+    wire reg_wen = (|idu_rd) && !idu_is_store && !idu_is_branch && (!idu_is_system || idu_is_csr_any);
+
+    wire [11:0] exu_csr_addr;
+    wire [31:0] exu_csr_wdata;
+    wire exu_csr_we;//EXU输出的CSR写使能
+    wire exu_trap_we;//EXU触发的异常/中断写使能
+    wire [31:0] exu_trap_epc;
+    wire [31:0] exu_trap_cause;
+    wire [31:0] csr_rdata;
+    wire [31:0] csr_mtvec;//异常入口的地址,由CSR输给EXU
+    wire [31:0] csr_mepc;
 
 
 
@@ -65,6 +87,14 @@ module ysyx_25040118_top (//顶层模块:连接IFU/IDU/EXU/LSU/RegFile并导出�
         .is_jal    (idu_is_jal),
         .is_jalr   (idu_is_jalr),
         .is_system (idu_is_system),
+        .is_csrrw  (idu_is_csrrw),
+        .is_csrrs  (idu_is_csrrs),
+        .is_csrrc  (idu_is_csrrc),
+        .is_csrrwi (idu_is_csrrwi),
+        .is_csrrsi (idu_is_csrrsi),
+        .is_csrrci (idu_is_csrrci),
+        .is_mret   (idu_is_mret),
+        .is_ecall  (idu_is_ecall),
         .is_auipc  (idu_is_auipc),
         .is_lui    (idu_is_lui),
         .is_alu_imm(idu_is_alu_imm)
@@ -101,13 +131,46 @@ module ysyx_25040118_top (//顶层模块:连接IFU/IDU/EXU/LSU/RegFile并导出�
         .is_jal   (idu_is_jal),
         .is_jalr  (idu_is_jalr),
         .is_system(idu_is_system),
+        .is_csrrw (idu_is_csrrw),
+        .is_csrrs (idu_is_csrrs),
+        .is_csrrc (idu_is_csrrc),
+        .is_csrrwi(idu_is_csrrwi),
+        .is_csrrsi(idu_is_csrrsi),
+        .is_csrrci(idu_is_csrrci),
+        .is_mret  (idu_is_mret),
+        .is_ecall (idu_is_ecall),
         .is_auipc (idu_is_auipc),
         .is_lui   (idu_is_lui),
         .is_alu_imm(idu_is_alu_imm),
+        .csr_rdata(csr_rdata),
+        .csr_mtvec(csr_mtvec),
+        .csr_mepc (csr_mepc),
         .result   (exu_result),
         .lsu_load_data(lsu_load_data),
         .next_pc  (exu_next_pc),
-        .ebreak   (idu_ebreak)
+        .ebreak   (idu_ebreak),
+        .csr_addr (exu_csr_addr),
+        .csr_wdata(exu_csr_wdata),
+        .csr_we   (exu_csr_we),
+        .trap_we  (exu_trap_we),
+        .trap_epc (exu_trap_epc),
+        .trap_cause(exu_trap_cause)
+    );
+
+    ysyx_25040118_csr csr_module (
+        .clk      (clk),
+        .rst      (rst),
+        .stop     (stop),
+        .csr_raddr(exu_csr_addr),
+        .csr_waddr(exu_csr_addr),
+        .csr_wdata(exu_csr_wdata),
+        .csr_we   (exu_csr_we),
+        .trap_we  (exu_trap_we),
+        .trap_epc (exu_trap_epc),
+        .trap_cause(exu_trap_cause),
+        .csr_rdata(csr_rdata),
+        .csr_mtvec(csr_mtvec),
+        .csr_mepc (csr_mepc)
     );
 
     wire [31:0] lsu_load_data; //访存返回的load数据
@@ -154,4 +217,5 @@ module ysyx_25040118_top (//顶层模块:连接IFU/IDU/EXU/LSU/RegFile并导出�
             end
         end
     end
+    
 endmodule

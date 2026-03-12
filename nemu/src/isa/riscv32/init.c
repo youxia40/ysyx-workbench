@@ -36,6 +36,8 @@ static void restart() {//重置CPU状态
 
 
   CSRs[CSR_MSTATUS] = 0x1800;//为了让DiffTest机制正确工作，将mstatus初始化为0x1800
+  CSRs[CSR_MVENDORID] = 0x79737978;
+  CSRs[CSR_MARCHID] = 0x017e14f6;
 }
 
 void init_isa() {

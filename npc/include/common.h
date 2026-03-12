@@ -19,13 +19,14 @@
 #define NPC_ENABLE_ITRACE   0//指令追踪
 #define NPC_ENABLE_MTRACE   0//访存追踪
 #define NPC_ENABLE_FTRACE   0//函数追踪
+#define NPC_ENABLE_ETRACE   0//异常返回追踪
 #define NPC_ENABLE_WAVE     0//波形
 
 
 //内存配置
 #define MEM_SIZE   (128*1024*1024)//主存总大小
 #define MEM_BASE   0x80000000//主存起始地址
-#define MAX_CYCLES 100000000//仿真最大周期保护阈值(大型程序需更高上限)
+//#define MAX_CYCLES 100000000
 
 //mtrace配套
 #define MTRACE_ADDR_LO 0x00000000u//访存地址过滤下限
@@ -59,6 +60,7 @@ typedef struct {//调试相关状态,用于sdb/trace/trap判定
     int itrace_enabled;//指令追踪开关
     int mtrace_enabled;//访存追踪开关
     int ftrace_enabled;//函数追踪开关
+    int etrace_enabled;//异常追踪开关
     uint64_t cycle_count;//调试周期计数
     int hit_good_trap;//是否命中GOODTRAP
     int hit_bad_trap;//是否命中BADTRAP

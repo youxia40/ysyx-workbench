@@ -1,4 +1,4 @@
-module ysyx_25040118_lsu (//访存单元,处理Load/Store并与DPI内存接口交互
+module ysyx_25040118_lsu (
     input clk,
     input rst,
     input stop,

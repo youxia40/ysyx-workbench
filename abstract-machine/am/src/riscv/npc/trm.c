@@ -1,5 +1,6 @@
 #include <am.h>//TRM平台入口实现,负责把AM程序接到NPC设备模型
 #include <klib-macros.h>
+#include <klib.h>
 #include <npc.h>
 
 /*
@@ -37,6 +38,20 @@ void halt(int code) {
 }
 
 void _trm_init() {          //AM约定的“启动入口”(通常由start.S调用它)
+  //通过内联汇编读出mvendorid、marchid的值, 然后通过printf()输出它们.
+  uint32_t mvendorid, marchid;
+  asm volatile("csrr %0, mvendorid" : "=r"(mvendorid));
+  asm volatile("csrr %0, marchid" : "=r"(marchid));
+
+  char vendor[5];
+  vendor[0] = (char)((mvendorid >> 24) & 0xff);
+  vendor[1] = (char)((mvendorid >> 16) & 0xff);
+  vendor[2] = (char)((mvendorid >> 8) & 0xff);
+  vendor[3] = (char)(mvendorid & 0xff);
+  vendor[4] = '\0';
+
+  printf("mvendorid=%s marchid=%d\n\n\n", vendor, (int)marchid);
+
   int ret = main(mainargs);   //把mainargs传给用户main,保持与NEMU/AM接口一致
   //注意:main(mainargs)是要在RISCV目标程序里写的main函数(也就是被加载到0x80000000、在NPC里跑的程序入口),定义在第5、12行
   halt(ret);                  //调用halt(ret)终止并把返回码交给环境

@@ -33,7 +33,6 @@ mcause值 → 事件一览（riscv32）
   12	         0x0000000c	    Instruction page fault（取指页故障，若有分页）
   13	         0x0000000d	    Load page fault（Load 页故障，若有分页）
   15	         0x0000000f	    Store/AMO page fault（Store/AMO 页故障，若有分页）
-说明：10/14 等在基础表里是保留/扩展用途；是否出现取决于实现与扩展（比如虚拟化扩展等）。
 
 中断（bit31=1）（外设/定时器触发）：
 mcause十进制（含bit31）	mcause十六进制	事件（Cause）

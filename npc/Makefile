@@ -17,6 +17,7 @@ PROJECT_HOME=$(abspath .)
 INCLUDE_DIR=$(PROJECT_HOME)/include
 VSRC_DIR=$(PROJECT_HOME)/vsrc
 CSRC_DIR=$(PROJECT_HOME)/csrc
+HSRCS = $(shell find $(INCLUDE_DIR) -maxdepth 1 -name '*.h')
 
 
 LLVM_PREFIX?=$(shell llvm-config --prefix 2>/dev/null || echo /usr/lib/llvm-14)
@@ -77,11 +78,12 @@ VERILATOR_FLAGS = --cc --trace-fst --build -sv \
 
 default: $(NPC_BIN)
 	@echo "NPC built: $(NPC_BIN)"
+	$(call git_commit, "sim RTL") # DO NOT REMOVE THIS LINE!!!
 
 $(shell mkdir -p $(BUILD_DIR) $(OBJ_DIR))
 #创建构建目录和对象目录
 
-$(NPC_BIN): $(VSRCS) $(CSRCS)
+$(NPC_BIN): $(VSRCS) $(CSRCS) $(HSRCS)
 	@echo "build dir: $(OBJ_DIR)"
 	$(VERILATOR) $(VERILATOR_FLAGS) \
 		--Mdir $(OBJ_DIR) \
@@ -94,11 +96,12 @@ $(NPC_BIN): $(VSRCS) $(CSRCS)
 BLUE = \033[34m
 BLUE_END = \033[0m
 
-
 run: $(NPC_BIN)
 	@echo "$(BLUE)[NPC] built=$(NPC_BIN)$(BLUE_END)"
 	@echo "$(BLUE)[NPC] run args='$(ARGS)' img='$(IMG)'$(BLUE_END)"
 	@$(NPC_BIN) $(ARGS) $(IMG)
+	$(call git_commit, "sim RTL") # DO NOT REMOVE THIS LINE!!!
+
 
 check:
 	@echo "VERISON: "verilator --version
@@ -111,13 +114,13 @@ check:
 	@echo "$(BLUE)-----------------Running Verilator lint check...-----------------$(BLUE_END)"
 	@echo "$(BLUE)-----------------------------------------------------------------$(BLUE_END)"
 	verilator --lint-only  $(VSRCS)
-
+	$(call git_commit, "sim RTL") # DO NOT REMOVE THIS LINE!!!
 
 syn:
 	@mkdir -p build/syn
 	$(YOSYS) -l build/syn/yosys.log -c flow/syn/syn.tcl
 	@grep -n --color=always "Warning:" build/syn/yosys.log || echo -e "\033[32mNo warnings\033[0m"
-
+	$(call git_commit, "sim RTL") # DO NOT REMOVE THIS LINE!!!
 
 sta:
 	@mkdir -p build/sta
@@ -128,9 +131,11 @@ sta:
 		CLK_PORT_NAME=clk \
 		CLK_FREQ_MHZ=100 \
 		O=$(PROJECT_HOME)/build/sta
-
+	$(call git_commit, "sim RTL") # DO NOT REMOVE THIS LINE!!!
 
 
 clean:
 	rm -rf $(BUILD_DIR)
+	@echo "Cleaned build artifacts in $(BUILD_DIR)"
+
 .PHONY: default run clean check syn sta

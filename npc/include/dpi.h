@@ -15,6 +15,8 @@ void npc_set_reg(int idx, uint32_t value);//同步RTL写回后的寄存器值
 void npc_itrace_log(uint64_t pc, uint32_t inst);//指令追踪日志钩子
 void npc_mtrace_log(int is_read, uint32_t addr, int len, uint32_t data);//访存追踪日志钩子
 void npc_ftrace_log(uint64_t pc, uint64_t target_pc, int is_call);//函数调用追踪日志钩子
+void npc_etrace_trap(uint32_t no, uint32_t epc, uint32_t handler);//异常进入追踪日志钩子
+void npc_etrace_mret(uint32_t from, uint32_t to);//异常返回追踪日志钩子
 
 #ifdef __cplusplus
 }

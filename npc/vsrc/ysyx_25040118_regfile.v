@@ -6,8 +6,8 @@ module ysyx_25040118_regfile (
     input [31:0] wdata,
     input wen,
     input [4:0] raddr1,
-    output [31:0] rdata1,
     input [4:0] raddr2,
+    output [31:0] rdata1,
     output [31:0] rdata2
 );
 
@@ -16,10 +16,9 @@ module ysyx_25040118_regfile (
     import "DPI-C" function void npc_set_reg(input int idx, input int value);
     `endif
 
+    logic [31:0] rf [0:15];//寄存器堆数组,x0~x15,logic类型支持综合和仿真
 
-    logic [31:0] rf [0:15];
-
-    //写端口:复位清零;正常时在wen有效且waddr!=0时写入
+    //写端口,复位清零;正常时在wen有效且waddr!=0时写入
     always @(posedge clk) begin
         if (rst) begin
             for (integer i = 0; i < 16; i = i + 1) begin
@@ -46,7 +45,7 @@ module ysyx_25040118_regfile (
         end
     end
 
-    //读端口:x0恒为0;RV32E仅支持x0~x15,越界读返回0
+    //读端口,x0恒为0;RV32E仅支持x0~x15,越界读返回0
     assign rdata1 = (raddr1 == 0) ? 32'b0 :
                     (raddr1 < 16) ? rf[raddr1] : 32'b0;
 

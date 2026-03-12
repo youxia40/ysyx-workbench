@@ -16,7 +16,7 @@ LDFLAGS   += --gc-sections -e _start
 NEMUFLAGS += -l $(shell dirname $(IMAGE).elf)/nemu-log.txt
 NEMUFLAGS += -e $(IMAGE).elf
 
-#NEMUFLAGS += -b#此处后缀-b参数进入NEMU的命令行参数的批处理模式，即无c直接运行，也可以在“run”的""内添加用于NEMU的命令行参数，-e后面跟的是要运行的程序
+NEMUFLAGS += -b#此处后缀-b参数进入NEMU的命令行参数的批处理模式，即无c直接运行，也可以在“run”的""内添加用于NEMU的命令行参数，-e后面跟的是要运行的程序
 
 
 MAINARGS_MAX_LEN = 64

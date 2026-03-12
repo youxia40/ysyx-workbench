@@ -61,6 +61,7 @@ int main(int argc, char **argv) {
   npc_ctx.debug.itrace_enabled = NPC_ENABLE_ITRACE;
   npc_ctx.debug.mtrace_enabled = NPC_ENABLE_MTRACE;
   npc_ctx.debug.ftrace_enabled = NPC_ENABLE_FTRACE;
+  npc_ctx.debug.etrace_enabled = NPC_ENABLE_ETRACE;
 
   npc_load_image(&npc_ctx, image);//自动识别ELF/BIN并完成装载
 
@@ -89,11 +90,21 @@ int main(int argc, char **argv) {
   ftrace_init(&npc_ctx);//加载ELF函数符号,用于call/ret打印
 #endif
 
+
+
+#if MAX_CYCLES
   printf("[NPC] sim start,max_cycles=%llu\n\n\n", (unsigned long long)MAX_CYCLES);
+#else
+    printf("[NPC] sim start\n\n\n");
+#endif
 
   int cyc = 0;//主循环计数器,每轮对应一个完整时钟周期(下降沿+上升沿)
-  while (!npc_ctx.stop && cyc < MAX_CYCLES) {//周期上限保护,防止死循环
 
+#if MAX_CYCLES
+  while (!npc_ctx.stop && cyc < MAX_CYCLES) {//周期上限保护,防止死循环
+#else
+  while (!npc_ctx.stop) {
+#endif
 
     top->clk = 0;//下降沿阶段
     top->rst = (cyc < 2) ? 1 : 0;//前两个周期保持复位
@@ -183,10 +194,16 @@ int main(int argc, char **argv) {
 
     cyc++;
   }
-
+#if MAX_CYCLES
   if (cyc >= MAX_CYCLES && !npc_ctx.stop) {
+#else
+  if (!npc_ctx.stop) {
+#endif
     npc_ctx.stop = true;//超周期上限时直接停止
+
+#if MAX_CYCLES
     npc_ctx.stop_reason = (char*)"MAX_CYCLES";
+#endif
     //这里标记为MAX_CYCLES而非PASS/FAIL,便于区分“功能失败”和“超时退出”
   }
 
