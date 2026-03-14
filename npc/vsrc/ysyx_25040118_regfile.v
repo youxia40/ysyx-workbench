@@ -34,13 +34,6 @@ module ysyx_25040118_regfile (
                 //同步到调试上下文(供sdb/expr/difftest与trap打印使用)
                 npc_set_reg(waddr, wdata);
                 `endif
-
-
-                //预留调试输出位置:仅在非stop且写入值非0时触发
-                if (!stop && wdata != 0) begin
-
-
-                end
             end
         end
     end

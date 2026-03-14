@@ -33,7 +33,7 @@ static void serial_stdin_init() {//非SDL模式下初始化终端为非阻塞输
   }
 }
 
-
+ 
 static void serial_putc(char ch) {//串口发送字符
   MUXDEF(CONFIG_TARGET_AM, putch(ch), putc(ch, stderr));
 }

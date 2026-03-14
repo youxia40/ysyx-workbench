@@ -6,6 +6,20 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 
+static void sdb_term_sane(void) {//恢复终端规范模式，便于readline正常工作
+  int rc = system("stty sane 2>/dev/null");
+  if (rc == -1) {
+    // Ignore failure and keep running without terminal mode switch.
+  }
+}
+
+static void sdb_term_raw(void) {//进入SDB交互前切换到非规范模式，便于设备轮询
+  int rc = system("stty -icanon -echo min 0 time 0 2>/dev/null");
+  if (rc == -1) {
+    // Ignore failure and keep running without terminal mode switch.
+  }
+}
+
 
 
 //打印SDB命令帮助
@@ -24,7 +38,7 @@ static void help() {
   printf("-  pt        - run expr tests\n");
 }
 
-//打印寄存器快照
+//打印寄存器
 void sdb_regs() {
   uint32_t regs[REG_NUM];//临时寄存器快照数组
 #if NPC_ENABLE_ASSERT
@@ -137,12 +151,12 @@ void sdb_step(NPCContext *ctx) {
 #if NPC_ENABLE_ASSERT
   assert(ctx != NULL);
 #endif
-  (void)system("stty sane 2>/dev/null");//进入SDB交互前恢复终端规范模式
+  sdb_term_sane();//进入SDB交互前恢复终端规范模式
 
   char *line = readline("(sdb) ");//readline负责行编辑和历史导航
   if (!line) {
     if (!ctx->stop && !ctx->debug.sdb_enabled) {
-      (void)system("stty -icanon -echo min 0 time 0 2>/dev/null");
+      sdb_term_raw();
     }
     return;
   }
@@ -151,7 +165,7 @@ void sdb_step(NPCContext *ctx) {
   if (!input || *input == '\0') {
     free(line);
     if (!ctx->stop && !ctx->debug.sdb_enabled) {
-      (void)system("stty -icanon -echo min 0 time 0 2>/dev/null");
+      sdb_term_raw();
     }
     return;
   }
@@ -169,7 +183,7 @@ void sdb_step(NPCContext *ctx) {
   if (!cmd) {
     free(line);
     if (!ctx->stop && !ctx->debug.sdb_enabled) {
-      (void)system("stty -icanon -echo min 0 time 0 2>/dev/null");
+      sdb_term_raw();
     }
     return;
   }
@@ -255,7 +269,7 @@ void sdb_step(NPCContext *ctx) {
 
   free(line);
   if (!ctx->stop && !ctx->debug.sdb_enabled) {
-    (void)system("stty -icanon -echo min 0 time 0 2>/dev/null");//离开SDB恢复设备键盘轮询所需的非规范模式
+    sdb_term_raw();//离开SDB恢复设备键盘轮询所需的非规范模式
   }
 
 }

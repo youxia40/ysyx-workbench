@@ -10,6 +10,7 @@ module ysyx_25040118_lsu (
     input is_store,
     output reg [31:0] load_data
 );
+
     parameter VIRT_MEM_BASE = 32'h80000000;
 
 `ifndef SYNTHESIS

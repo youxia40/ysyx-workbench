@@ -13,9 +13,16 @@
 #include <cstring>
 #include <cstdio>
 #include <cassert>
+#include <csignal>
 
 
 extern NPCContext npc_ctx;
+
+static volatile sig_atomic_t g_stop_by_signal = 0;
+
+static void on_signal(int sig) {
+  g_stop_by_signal = sig;
+}
 
 static void parse_args(int argc, char **argv,const char **image,bool *batch) {
   *image = nullptr;
@@ -51,6 +58,9 @@ int main(int argc, char **argv) {
 
   Verilated::commandArgs(argc, argv);//把命令行参数传给Verilator运行时
   Verilated::traceEverOn(NPC_ENABLE_WAVE ? true : false);//按开关决定是否启用波形trace
+
+  signal(SIGINT, on_signal);
+  signal(SIGTERM, on_signal);
 
   std::memset(&npc_ctx, 0, sizeof(npc_ctx));//清零全局上下文,保证状态可重复
 
@@ -105,6 +115,11 @@ int main(int argc, char **argv) {
 #else
   while (!npc_ctx.stop) {
 #endif
+    if (g_stop_by_signal) {//如果收到了终止信号,则设置停止标志并记录原因
+      npc_ctx.stop = true;
+      npc_ctx.stop_reason = (char*)"SIGINT/SIGTERM";
+      break;
+    }
 
     top->clk = 0;//下降沿阶段
     top->rst = (cyc < 2) ? 1 : 0;//前两个周期保持复位

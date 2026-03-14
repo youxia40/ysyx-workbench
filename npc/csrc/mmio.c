@@ -1,7 +1,13 @@
 #include "mmio.h"
 #include "common.h"
-#include <sys/time.h>
+
+#include <errno.h>
+#include <fcntl.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <sys/time.h>
+#include <termios.h>
+#include <unistd.h>
 
 #if NPC_USE_SDL
 #include <SDL2/SDL.h>
@@ -10,62 +16,238 @@
 #define GPU_WIDTH  400u
 #define GPU_HEIGHT 300u
 #define GPU_VMEM_SIZE (GPU_WIDTH * GPU_HEIGHT * 4u)
-#define KBD_KEYDOWN_MASK 0x8000u
 
-static char serial_buf[4096];//串口输出缓冲
-static int serial_buf_len = 0;//串口缓冲当前长度
+#define KEYDOWN_MASK 0x8000u
+#define INPUT_Q_LEN 1024
 
-static int kbd_inited = 0;//键盘输入是否已初始化
-static int kbd_ok = 0;//键盘输入当前是否可用
-static char kbd_stty_old[128] = {0};//非SDL模式下保存原终端配置
+#define NPC_KEYS(f) \
+  f(ESCAPE) f(F1) f(F2) f(F3) f(F4) f(F5) f(F6) f(F7) f(F8) f(F9) f(F10) f(F11) f(F12) \
+  f(GRAVE) f(1) f(2) f(3) f(4) f(5) f(6) f(7) f(8) f(9) f(0) f(MINUS) f(EQUALS) f(BACKSPACE) \
+  f(TAB) f(Q) f(W) f(E) f(R) f(T) f(Y) f(U) f(I) f(O) f(P) f(LEFTBRACKET) f(RIGHTBRACKET) f(BACKSLASH) \
+  f(CAPSLOCK) f(A) f(S) f(D) f(F) f(G) f(H) f(J) f(K) f(L) f(SEMICOLON) f(APOSTROPHE) f(RETURN) \
+  f(LSHIFT) f(Z) f(X) f(C) f(V) f(B) f(N) f(M) f(COMMA) f(PERIOD) f(SLASH) f(RSHIFT) \
+  f(LCTRL) f(APPLICATION) f(LALT) f(SPACE) f(RALT) f(RCTRL) \
+  f(UP) f(DOWN) f(LEFT) f(RIGHT) f(INSERT) f(DELETE) f(HOME) f(END) f(PAGEUP) f(PAGEDOWN)
+
+#define NPC_KEY_NAME(k) NPC_KEY_##k,
+enum {
+  NPC_KEY_NONE = 0,
+  NPC_KEYS(NPC_KEY_NAME)
+};
+
+static char serial_buf[4096];
+static int serial_buf_len = 0;
+
+static int io_inited = 0;//输入系统是否初始化
+
+static uint32_t kbd_q[INPUT_Q_LEN];//键盘事件队列(bit15=keydown,低位=AM键码)
+static int kbd_q_head = 0;//键盘队列读指针
+static int kbd_q_tail = 0;//键盘队列写指针
+
+static uint8_t uart_rx_q[INPUT_Q_LEN];//串口接收字节队列
+static int uart_rx_head = 0;//串口队列读指针
+static int uart_rx_tail = 0;//串口队列写指针
 
 static uint8_t gpu_vmem[GPU_VMEM_SIZE];//软件帧缓冲
 static uint32_t gpu_sync = 0;//SYNC寄存器镜像
-static int gpu_sync_seen = 0;//是否已经收到过首个SYNC
-static int gpu_dirty = 0;//帧缓冲是否有改动(用于减少无效刷新)
+static int gpu_sync_seen = 0;//是否收到过首个SYNC
+static int gpu_dirty = 0;//帧缓冲是否有改动
 
-static uint64_t rtc_latched_us = 0;//LO/HI配对读取时的锁存值
-static uint64_t rtc_boot_us = 0;//启动时间戳
+static uint64_t rtc_latched_us = 0;//读LO时锁存值
+static uint64_t rtc_boot_us = 0;//启动时间基准
 
+static struct termios stdin_term_orig;//stdin原始终端属性
+static int stdin_term_saved = 0;//是否保存过原始终端属性
+
+//SDL窗口和键码映射状态
 #if NPC_USE_SDL
-static SDL_Window *gpu_window = NULL;//SDL窗口指针
-static SDL_Renderer *gpu_renderer = NULL;//SDL渲染器指针
-static SDL_Texture *gpu_texture = NULL;//SDL纹理指针
-static int gpu_sdl_inited = 0;//SDL是否已初始化
+static SDL_Window *gpu_window = NULL;
+static SDL_Renderer *gpu_renderer = NULL;
+static SDL_Texture *gpu_texture = NULL;
+static int gpu_sdl_inited = 0;
 
-static inline uint32_t sdl_key_to_raw(SDL_Keycode sym){//SDL键码转原始键值(字母/数字ASCII,其余按需映射)
-  if ((sym >= SDLK_a && sym <= SDLK_z) || (sym >= SDLK_0 && sym <= SDLK_9)) {
-    return (uint32_t)sym;
+static uint32_t keymap[512] = {0};//SDL扫描码->AM键码映射表
+static int keymap_inited = 0;//键码映射是否已初始化
+#define SDL_KEYMAP(k) keymap[SDL_SCANCODE_##k] = NPC_KEY_##k;
+#endif
+
+//输入环形队列
+static inline int q_next(int idx) {
+//索引推进到下一个槽位
+  return (idx + 1) % INPUT_Q_LEN;
+}
+
+static inline void kbd_enqueue(uint32_t ev) {
+//队列满时覆盖最老事件,这样最新按键不会丢
+  int next = q_next(kbd_q_tail);
+  if (next == kbd_q_head) {
+    kbd_q_head = q_next(kbd_q_head);
   }
-  switch (sym) {//映射常用控制键和空格
-    case SDLK_RETURN: return '\n';
-    case SDLK_SPACE:  return ' ';
-    case SDLK_ESCAPE: return 27;
-    default: return 0;
+  kbd_q[kbd_q_tail] = ev;
+  kbd_q_tail = next;
+}
+
+static inline uint32_t kbd_dequeue(void) {
+//无键盘事件时返回NPC_KEY_NONE
+  uint32_t key = NPC_KEY_NONE;
+  if (kbd_q_head != kbd_q_tail) {
+    key = kbd_q[kbd_q_head];
+    kbd_q_head = q_next(kbd_q_head);
+  }
+  return key;
+}
+
+static inline void uart_enqueue(uint8_t ch) {
+//串口接收队列也用同样策略
+  int next = q_next(uart_rx_tail);
+  if (next == uart_rx_head) {
+    uart_rx_head = q_next(uart_rx_head);
+  }
+  uart_rx_q[uart_rx_tail] = ch;
+  uart_rx_tail = next;
+}
+
+static inline uint32_t uart_dequeue(void) {
+//无串口输入时返回0xff
+  uint32_t ch = 0xffu;
+  if (uart_rx_head != uart_rx_tail) {
+    ch = (uint32_t)uart_rx_q[uart_rx_head];
+    uart_rx_head = q_next(uart_rx_head);
+  }
+  return ch;
+}
+
+static inline uint32_t ascii_to_am_key(unsigned char ch) {//把ASCII字符映射到AM键码,仅支持常用可见字符，特殊键由SDL事件直接注入
+  if (ch >= 'a' && ch <= 'z') return NPC_KEY_A + (uint32_t)(ch - 'a');
+  if (ch >= 'A' && ch <= 'Z') return NPC_KEY_A + (uint32_t)(ch - 'A');
+  if (ch >= '1' && ch <= '9') return NPC_KEY_1 + (uint32_t)(ch - '1');
+  if (ch == '0') return NPC_KEY_0;
+
+  switch (ch) {
+    case ' ': return NPC_KEY_SPACE;
+    case '\n':
+    case '\r': return NPC_KEY_RETURN;
+    case '\t': return NPC_KEY_TAB;
+    case 127://ASCII DEL键通常被终端映射为Backspace
+    case '\b': return NPC_KEY_BACKSPACE;
+    case '-': return NPC_KEY_MINUS;
+    case '=': return NPC_KEY_EQUALS;
+    case '[': return NPC_KEY_LEFTBRACKET;
+    case ']': return NPC_KEY_RIGHTBRACKET;
+    case '\\': return NPC_KEY_BACKSLASH;
+    case ';': return NPC_KEY_SEMICOLON;
+    case '\'': return NPC_KEY_APOSTROPHE;
+    case ',': return NPC_KEY_COMMA;
+    case '.': return NPC_KEY_PERIOD;
+    case '/': return NPC_KEY_SLASH;
+    case '`': return NPC_KEY_GRAVE;
+    default: return NPC_KEY_NONE;
   }
 }
 
-static void gpu_window_init(void){//初始化SDL窗口与渲染资源(懒初始化)
+static inline void serial_flush(void) {//把串口输出缓存刷到stdout
+  if (serial_buf_len <= 0) {
+    return;
+  }
+  fwrite(serial_buf, 1, (size_t)serial_buf_len, stdout);
+  fflush(stdout);//实时输出
+  serial_buf_len = 0;
+}
+
+static inline void serial_putc(char ch) {
+#if NPC_ENABLE_ASSERT
+  assert(serial_buf_len >= 0 && serial_buf_len < (int)sizeof(serial_buf));
+#endif
+  serial_buf[serial_buf_len++] = ch;
+//按字符立即刷出,方便实时看到日志
+  serial_flush();
+}
+
+static void stdin_restore_term(void) {
+  if (stdin_term_saved) {
+    (void)tcsetattr(STDIN_FILENO, TCSANOW, &stdin_term_orig);
+  }
+}
+
+//stdin采集并写入UART输入队列
+static void io_init_once(void) {//把stdin设成非阻塞,避免设备读取把CPU卡住
+  if (io_inited) {
+    return;
+  }
+  io_inited = 1;
+
+  {
+//先把stdin设成非阻塞,避免设备读取把CPU卡住
+    int flags = fcntl(STDIN_FILENO, F_GETFL);
+    if (flags >= 0) {
+      (void)fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK);
+    }
+  }
+
+  if (isatty(STDIN_FILENO)) {
+    struct termios t;
+    if (tcgetattr(STDIN_FILENO, &stdin_term_orig) == 0) {
+      stdin_term_saved = 1;
+      t = stdin_term_orig;
+      t.c_lflag &= (tcflag_t)~(ICANON | ECHO);
+      t.c_cc[VMIN] = 0;
+      t.c_cc[VTIME] = 0;
+      (void)tcsetattr(STDIN_FILENO, TCSANOW, &t);
+      (void)atexit(stdin_restore_term);
+    }
+  }
+}
+
+static inline void pump_stdin_uart(void) {
+  int i;
+//每轮最多取32字节,避免I/O长期占用主循环
+  for (i = 0; i < 32; i++) {
+    unsigned char ch = 0;
+    ssize_t n = read(STDIN_FILENO, &ch, 1);
+    if (n == 1) {
+//终端字符直接作为UART字节输入
+      uart_enqueue(ch);
+      {
+        uint32_t key = ascii_to_am_key(ch);
+        if (key != NPC_KEY_NONE) {
+//终端输入仅注入keydown,对齐“只看DOWN”的测试诉求
+          kbd_enqueue(KEYDOWN_MASK | key);
+        }
+      }
+      continue;
+    }
+    if (n == 0) {
+      break;
+    }
+    if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
+      break;
+    }
+    break;
+  }
+}
+
+#if NPC_USE_SDL
+//SDL事件轮询并分发到键盘/串口
+static void gpu_window_init(void) {
   if (gpu_sdl_inited) {
     return;
   }
   gpu_sdl_inited = 1;
 
-  if (SDL_Init(SDL_INIT_VIDEO) != 0) {//初始化SDL视频子系统
+  if (SDL_Init(SDL_INIT_VIDEO) != 0) {
     fprintf(stderr, "[NPC][GPU] SDL_Init failed: %s\n", SDL_GetError());
     return;
   }
 
-  if (SDL_CreateWindowAndRenderer((int)GPU_WIDTH * 2, (int)GPU_HEIGHT * 2,0, &gpu_window, &gpu_renderer) != 0) {
-    //创建窗口和渲染器失败时直接返回,保持GPU功能可用但不显示
+  if (SDL_CreateWindowAndRenderer((int)GPU_WIDTH * 2, (int)GPU_HEIGHT * 2,
+      0, &gpu_window, &gpu_renderer) != 0) {
     fprintf(stderr, "[NPC][GPU] SDL_CreateWindowAndRenderer failed: %s\n", SDL_GetError());
     return;
   }
 
-  SDL_SetWindowTitle(gpu_window, "NPC");//标题
+  SDL_SetWindowTitle(gpu_window, "NPC");
   gpu_texture = SDL_CreateTexture(gpu_renderer, SDL_PIXELFORMAT_ARGB8888,
-                                  SDL_TEXTUREACCESS_STREAMING,
-                                  (int)GPU_WIDTH, (int)GPU_HEIGHT);
+      SDL_TEXTUREACCESS_STREAMING, (int)GPU_WIDTH, (int)GPU_HEIGHT);
   if (!gpu_texture) {
     fprintf(stderr, "[NPC][GPU] SDL_CreateTexture failed: %s\n", SDL_GetError());
     return;
@@ -74,28 +256,37 @@ static void gpu_window_init(void){//初始化SDL窗口与渲染资源(懒初始�
   fprintf(stderr, "[NPC][GPU] SDL window ready: %ux%u\n", GPU_WIDTH, GPU_HEIGHT);
 }
 
-static void gpu_window_refresh(void){//把软件帧缓冲提交到SDL窗口
+static void gpu_window_refresh(void) {
+//把软件帧缓冲推到SDL窗口
   gpu_window_init();
-  if (!gpu_renderer || !gpu_texture) {//如果渲染资源不可用就直接返回,保持GPU功能但不显示
+  if (!gpu_renderer || !gpu_texture) {
     return;
   }
-
-  SDL_UpdateTexture(gpu_texture, NULL, gpu_vmem, (int)GPU_WIDTH * 4);//更新整个纹理,每行GPU_WIDTH个像素每像素4字节(ARGB8888)
-  SDL_RenderClear(gpu_renderer);//清空渲染目标
-  SDL_RenderCopy(gpu_renderer, gpu_texture, NULL, NULL);//把纹理复制到渲染目标(窗口),不缩放
-  SDL_RenderPresent(gpu_renderer);//显示渲染结果
+  SDL_UpdateTexture(gpu_texture, NULL, gpu_vmem, (int)GPU_WIDTH * 4);
+  SDL_RenderClear(gpu_renderer);
+  SDL_RenderCopy(gpu_renderer, gpu_texture, NULL, NULL);
+  SDL_RenderPresent(gpu_renderer);
 }
 
-static inline uint32_t keyboard_poll_event_sdl(void){//SDL键盘事件编码:bit15=1按下,bit15=0抬起,0=无事件
+static void init_keymap_once(void) {
+  if (keymap_inited) {
+    return;
+  }
+  keymap_inited = 1;
+//把SDL扫描码映射到AM键码
+  NPC_KEYS(SDL_KEYMAP)
+}
+
+static inline void pump_sdl_events(void) {
+  SDL_Event ev;
   gpu_window_init();
-  //窗口事件与键盘事件共用同一轮SDL_PollEvent,这样可在无键盘输入时也及时处理窗口关闭事件
+  init_keymap_once();
 
-
-
-  SDL_Event ev;//SDL事件结构体,用于存储从事件队列中取出的事件信息
-  while (SDL_PollEvent(&ev)) {//循环取出所有待处理事件
+  while (SDL_PollEvent(&ev)) {
     if (ev.type == SDL_QUIT) {
-      return KBD_KEYDOWN_MASK | 27u;
+//把窗口关闭转换成ESC输入,便于上层程序处理退出
+      kbd_enqueue(KEYDOWN_MASK | NPC_KEY_ESCAPE);
+      continue;
     }
 
     if (ev.type != SDL_KEYDOWN && ev.type != SDL_KEYUP) {
@@ -105,289 +296,232 @@ static inline uint32_t keyboard_poll_event_sdl(void){//SDL键盘事件编码:bit
       continue;
     }
 
-    uint32_t raw = sdl_key_to_raw(ev.key.keysym.sym);
-    if (raw == 0) {
-      continue;
+    {
+      SDL_Scancode sc = ev.key.keysym.scancode;
+      uint32_t am_key = (sc < (SDL_Scancode)(sizeof(keymap) / sizeof(keymap[0]))) ? keymap[sc] : NPC_KEY_NONE;
+      if (am_key == NPC_KEY_NONE) {
+//未映射按键直接忽略,避免污染键盘设备语义
+        continue;
+      }
+
+      if (ev.type == SDL_KEYDOWN) {
+//在键盘设备里上报keydown事件
+        kbd_enqueue(KEYDOWN_MASK | am_key);
+      } else {
+//在键盘设备里上报keyup事件
+        kbd_enqueue(am_key);
+      }
     }
-
-    if (ev.type == SDL_KEYDOWN) {
-      return KBD_KEYDOWN_MASK | raw;
-    }
-    return raw;
   }
-
-  return 0;
 }
-#endif
-
-static inline void serial_flush(void){//把串口缓冲区刷到stdout
-  if (serial_buf_len <= 0) {//没有数据需要刷新
-    return;
-  }
-
-  //串口输出先缓冲后批量写出
-  fwrite(serial_buf, 1, (size_t)serial_buf_len, stdout);
-  fflush(stdout);//确保输出及时显示，位于缓冲区末尾的内容不会因为缓冲未满而延迟输出，stdio.h
-  serial_buf_len = 0;//重置缓冲长度
-}
-
-static inline void serial_push_char(char ch){//推入一个字符,缓冲满时自动刷新
-#if NPC_ENABLE_ASSERT
-  assert(serial_buf_len >= 0 && serial_buf_len < (int)sizeof(serial_buf));
-#endif
-  serial_buf[serial_buf_len++] = ch;//把字符添加到缓冲区末尾
-  
-  //按字符刷新
-  serial_flush();
-}
-
-static inline int run_stty_cmd(const char *cmd) {//执行stty命令以设置或恢复终端属性
-  return system(cmd);
-}
-
-static void keyboard_restore(void){//程序结束时恢复终端设置
-  if (!kbd_ok) {
-    return;
-  }
-
-  char cmd[192] = {0};//stty恢复命令
-  if (kbd_stty_old[0] != '\0') {//如果保存了原终端配置就恢复，避免自定义配置丢失
-    snprintf(cmd, sizeof(cmd), "stty %s 2>/dev/null", kbd_stty_old);
-  } else {
-    snprintf(cmd, sizeof(cmd), "stty sane 2>/dev/null");
-  }
-  (void)run_stty_cmd(cmd);
-  //恢复后把kbd_ok清零，避免重复恢复导致状态抖动
-  kbd_ok = 0;
-}
-
-static void keyboard_init_once(void){//初始化键盘输入(SDL直通,非SDL改stty)
-  if (kbd_inited) {
-    return;
-  }
-  kbd_inited = 1;//只初始化一次
-
-#if NPC_USE_SDL
-  kbd_ok = 1;//SDL模式直接标记键盘可用，后续通过事件轮询获取输入
-  return;
-#endif
-
-  FILE *fp = popen("stty -g 2>/dev/null", "r");//执行stty命令获取当前终端配置以便后续恢复,输出重定向到/dev/null，stdio.h
-  if (!fp) {
-    return;
-  }
-  if (!fgets(kbd_stty_old, sizeof(kbd_stty_old), fp)) {//读取失败时直接返回，保持键盘功能但不修改终端设置
-    pclose(fp);
-    return;
-  }
-  pclose(fp);
-
-  kbd_stty_old[strcspn(kbd_stty_old, "\r\n")] = '\0';//去掉行尾换行符，后直接用在stty恢复命令中
-  if (run_stty_cmd("stty -icanon -echo min 0 time 0 2>/dev/null") != 0) {
-    //设置非规范模式和关闭回显，如果失败了就直接返回，保持键盘功能但不修改终端设置
-    return;
-  }
-
-  atexit(keyboard_restore);//注册程序退出时的恢复函数，确保终端设置能被正确恢复，stdlib.h
-  kbd_ok = 1;
-}
-
-static inline uint32_t keyboard_poll_event(void){//键盘事件读取(KEYDOWN:bit15=1,KEYUP:bit15=0,无事件:0)
-  keyboard_init_once();
-  if (!kbd_ok) {
-    return 0;
-  }
-
-#if NPC_USE_SDL
-  return keyboard_poll_event_sdl();//SDL模式通过事件轮询获取键盘输入，非SDL模式通过stty设置后直接读取stdin
 #else
-  int ch = getchar();//读取一个字符，如果没有输入则返回EOF
-  if (ch == EOF) {//没有输入时返回0，表示无事件；如果读取失败也返回0，保持键盘功能但不报错
-    clearerr(stdin);//清除EOF状态，准备下一次读取，stdio.h
-    return 0;
-  }
-  return KBD_KEYDOWN_MASK | (uint32_t)(unsigned char)ch;//返回按下事件，包含原始字符值，非SDL模式不区分按下抬起，直接当作按下事件处理
-#endif
+static void gpu_window_refresh(void) {
 }
 
-static inline uint32_t serial_poll_char(void){//串口输入读取(无输入返回0xff)
-#if NPC_USE_SDL
-  //SDL模式下终端stdin通常不作为输入来源
-  return 0xffu;
-#else
-  keyboard_init_once();//复用同一套终端非规范模式初始化
-  int ch = getchar();
-  if (ch == EOF) {
-    clearerr(stdin);
-    return 0xffu;
-  }
-  return (uint32_t)(unsigned char)ch;
+static inline void pump_sdl_events(void) {
+}
 #endif
+
+//输入统一入口
+static inline void input_pump_all(void) {
+//先收SDL事件,再收stdin字符
+  io_init_once();
+  pump_sdl_events();
+  pump_stdin_uart();
 }
 
-static uint64_t get_time_us(void){//读当前系统时间(微秒)
-  struct timeval tv;//timeval结构体用于存储秒和微秒，sys/time.h
+static inline uint32_t keyboard_poll_event(void) {
+//每次读键盘寄存器前先泵输入
+  input_pump_all();
+  return kbd_dequeue();
+}
 
-  gettimeofday(&tv, NULL);//取当前时间
+static inline uint32_t serial_poll_char(void) {
+//仅在UART队列为空时再泵输入,避免持续串口轮询饿死键盘事件输出
+  if (uart_rx_head == uart_rx_tail) {
+    input_pump_all();
+  }
+  return uart_dequeue();
+}
+
+//RTC实现
+static uint64_t get_time_us(void) {
+  struct timeval tv;
+  gettimeofday(&tv, NULL);
   return (uint64_t)tv.tv_sec * 1000000ull + (uint64_t)tv.tv_usec;
 }
 
-static uint64_t get_uptime_us(void){//读取从启动到当前的时间(微秒)
+static uint64_t get_uptime_us(void) {
+//第一次读取时记录启动时间基准
   uint64_t now = get_time_us();
   if (rtc_boot_us == 0) {
-    //首次访问时记录boot基准，后续统一返回相对时间，便于与AM的uptime语义对齐
     rtc_boot_us = now;
   }
-  return now - rtc_boot_us;//返回相对时间
+  return now - rtc_boot_us;
 }
 
-static inline int fb_in_range(uint32_t addr_aligned) {//判断地址是否命中帧缓冲区域，统一按word对齐地址匹配
+//帧缓冲读写
+static inline int fb_in_range(uint32_t addr_aligned) {
+//统一按word对齐地址判断是否命中FB区域
   return addr_aligned >= MMIO_FB_ADDR && addr_aligned < (MMIO_FB_ADDR + GPU_VMEM_SIZE);
 }
 
-static inline uint32_t fb_read_word(uint32_t addr_aligned){//按4字节读取帧缓冲
+static inline uint32_t fb_read_word(uint32_t addr_aligned) {
 #if NPC_ENABLE_ASSERT
-  assert((addr_aligned & 0x3u) == 0);//调用方应传入word对齐地址
+  assert((addr_aligned & 0x3u) == 0);
 #endif
-  if (!fb_in_range(addr_aligned)) {//地址不在帧缓冲范围内返回0，保持设备功能但不报错
+  if (!fb_in_range(addr_aligned)) {
     return 0;
   }
 
-  uint32_t off = addr_aligned - MMIO_FB_ADDR;//相对帧缓冲起始地址的偏移
-  if (off + 4 > GPU_VMEM_SIZE) {//越界访问时返回0
-    return 0;
-  }
+  {
+    uint32_t off = addr_aligned - MMIO_FB_ADDR;
+    if (off + 4 > GPU_VMEM_SIZE) {
+      return 0;
+    }
 
-  return ((uint32_t)gpu_vmem[off + 0] << 0) |((uint32_t)gpu_vmem[off + 1] << 8) |
-         ((uint32_t)gpu_vmem[off + 2] << 16) |((uint32_t)gpu_vmem[off + 3] << 24);//小端组为一个32位值
+//按小端把4字节拼成一个32位字返回
+    return ((uint32_t)gpu_vmem[off + 0] << 0) |
+           ((uint32_t)gpu_vmem[off + 1] << 8) |
+           ((uint32_t)gpu_vmem[off + 2] << 16) |
+           ((uint32_t)gpu_vmem[off + 3] << 24);
+  }
 }
 
-static inline void fb_write_word(uint32_t addr_aligned, uint32_t data, uint8_t mask){//按掩码写帧缓冲(mask=0x0f走整字快速路径)
+static inline void fb_write_word(uint32_t addr_aligned, uint32_t data, uint8_t mask) {
 #if NPC_ENABLE_ASSERT
-  assert((addr_aligned & 0x3u) == 0);//调用方应传入word对齐地址
-  assert((mask & 0xf0u) == 0);//写掩码仅允许低4位
+  assert((addr_aligned & 0x3u) == 0);
+  assert((mask & 0xf0u) == 0);
 #endif
   if (!fb_in_range(addr_aligned)) {
     return;
   }
 
-  uint32_t off = addr_aligned - MMIO_FB_ADDR;//计算相对于帧缓冲起始地址的偏移
-  if (off + 4 > GPU_VMEM_SIZE) {//越界访问直接丢弃
-    return;
-  }
+  {
+    uint32_t off = addr_aligned - MMIO_FB_ADDR;
+    int i;
+    if (off + 4 > GPU_VMEM_SIZE) {
+      return;
+    }
 
-  if (mask == 0x0fu) {
-    uint32_t *dst = (uint32_t *)(void *)(gpu_vmem + off);//目标地址
-    *dst = data;//全字写则直接覆盖
-    gpu_dirty = 1;
-    //全字写是最常见路径（如memcpy/fbdraw），走快速路径可减少逐字节分支开销
-    return;
-  }
-
-  for (int i = 0; i < 4; i++) {
-    if (mask & (1u << i)) {
-      gpu_vmem[off + i] = (uint8_t)((data >> (8 * i)) & 0xffu);
+    if (mask == 0x0fu) {
+//全字写单独走快路径
+      uint32_t *dst = (uint32_t *)(void *)(gpu_vmem + off);
+      *dst = data;
       gpu_dirty = 1;
+      return;
+    }
+
+    for (i = 0; i < 4; i++) {
+      if (mask & (1u << i)) {
+        gpu_vmem[off + i] = (uint8_t)((data >> (8 * i)) & 0xffu);
+        gpu_dirty = 1;
+      }
     }
   }
 }
 
-int mmio_in_range(uint32_t addr_aligned){//判断地址是否命中设备寄存器空间
-#if NPC_ENABLE_ASSERT
-  assert((addr_aligned & 0x3u) == 0);//MMIO匹配统一基于word对齐地址
-#endif
-  //按word对齐地址匹配，和DPI层aligned访问约定保持一致
-  return (addr_aligned == (MMIO_SERIAL_ADDR & ~0x3u)) ||(addr_aligned == (MMIO_RTC_LO_ADDR & ~0x3u)) ||
-  (addr_aligned == (MMIO_RTC_HI_ADDR & ~0x3u)) ||(addr_aligned == (MMIO_KBD_ADDR & ~0x3u)) ||
-  (addr_aligned == (MMIO_VGACTL_ADDR & ~0x3u)) ||(addr_aligned == (MMIO_SYNC_ADDR & ~0x3u)) ||
-  fb_in_range(addr_aligned);//帧缓冲地址也算MMIO地址，走设备路径处理
-}
-
-uint32_t mmio_read(uint32_t addr_aligned){//MMIO读入口
+//MMIO对外接口
+int mmio_in_range(uint32_t addr_aligned) {
 #if NPC_ENABLE_ASSERT
   assert((addr_aligned & 0x3u) == 0);
 #endif
+
+  return (addr_aligned == (MMIO_SERIAL_ADDR & ~0x3u)) ||
+         (addr_aligned == (MMIO_RTC_LO_ADDR & ~0x3u)) ||
+         (addr_aligned == (MMIO_RTC_HI_ADDR & ~0x3u)) ||
+         (addr_aligned == (MMIO_KBD_ADDR & ~0x3u)) ||
+         (addr_aligned == (MMIO_VGACTL_ADDR & ~0x3u)) ||
+         (addr_aligned == (MMIO_SYNC_ADDR & ~0x3u)) ||
+         fb_in_range(addr_aligned);
+}
+
+uint32_t mmio_read(uint32_t addr_aligned) {
+#if NPC_ENABLE_ASSERT
+  assert((addr_aligned & 0x3u) == 0);
+#endif
+
   if (addr_aligned == (MMIO_VGACTL_ADDR & ~0x3u)) {
-    return (GPU_WIDTH << 16) | GPU_HEIGHT;//VGACTL:高16位宽,低16位高
+    return (GPU_WIDTH << 16) | GPU_HEIGHT;
   }
 
-  if (addr_aligned == (MMIO_SYNC_ADDR & ~0x3u)) {//读SYNC寄存器返回当前镜像值
+  if (addr_aligned == (MMIO_SYNC_ADDR & ~0x3u)) {
     return gpu_sync;
   }
 
-  if (fb_in_range(addr_aligned)) {//帧缓冲区域按内存语义读取，直接返回对应地址的值
+  if (fb_in_range(addr_aligned)) {
     return fb_read_word(addr_aligned);
   }
 
   if (addr_aligned == (MMIO_RTC_LO_ADDR & ~0x3u)) {
-    rtc_latched_us = get_uptime_us();//读取LO时刷新锁存值,与随后HI配对
-    //AM侧按low->high顺序读,这里在low时锁存可保证拼出的64位时间来自同一时刻
-
+//读LO时锁存当前时间,让后续HI/LO来自同一时刻
+    rtc_latched_us = get_uptime_us();
     return (uint32_t)(rtc_latched_us & 0xffffffffu);
   }
 
   if (addr_aligned == (MMIO_RTC_HI_ADDR & ~0x3u)) {
-    //HI直接返回上一次锁存值的高32位,避免跨时刻读取导致高低位不一致
     return (uint32_t)((rtc_latched_us >> 32) & 0xffffffffu);
   }
 
-  if (addr_aligned == (MMIO_KBD_ADDR & ~0x3u)) {//读取键盘事件
+  if (addr_aligned == (MMIO_KBD_ADDR & ~0x3u)) {
+//按bit15=keydown,低位=AM键码的语义返回
     return keyboard_poll_event();
   }
 
-  if (addr_aligned == (MMIO_SERIAL_ADDR & ~0x3u)) {//读取串口输入字符
+  if (addr_aligned == (MMIO_SERIAL_ADDR & ~0x3u)) {
+//按UART语义返回1字节,无输入时为0xff
     return serial_poll_char();
   }
 
   return 0;
 }
 
-void mmio_write(uint32_t addr_aligned, uint32_t data, uint8_t mask){//MMIO写入口
+void mmio_write(uint32_t addr_aligned, uint32_t data, uint8_t mask) {
 #if NPC_ENABLE_ASSERT
   assert((addr_aligned & 0x3u) == 0);
   assert((mask & 0xf0u) == 0);
 #endif
+
   if (fb_in_range(addr_aligned)) {
-    //帧缓冲区域采用“内存语义”写入，不走寄存器
     fb_write_word(addr_aligned, data, mask);
     return;
   }
 
   if (addr_aligned == (MMIO_SYNC_ADDR & ~0x3u)) {
-    //SYNC寄存器允许按字节写,这里把每个被mask选中的字节并入gpu_sync镜像
-    for (int i = 0; i < 4; i++) {
+//SYNC寄存器允许按字节写
+    int i;
+    for (i = 0; i < 4; i++) {
       if (mask & (1u << i)) {
         ((uint8_t *)&gpu_sync)[i] = (uint8_t)((data >> (8 * i)) & 0xffu);
       }
     }
 
     if (gpu_sync) {
-      int first_sync = !gpu_sync_seen;//首个SYNC保证首帧显示
+//检测到SYNC被置位就触发刷新,然后清零
+      int first_sync = !gpu_sync_seen;
       if (!gpu_sync_seen) {
-        gpu_sync_seen = 1;//记录已经收到过SYNC的状态，后续不再打印首帧日志
+        gpu_sync_seen = 1;
         fprintf(stderr, "[NPC][GPU] first SYNC write received\n");
       }
 
 #if NPC_USE_SDL
-      if (first_sync || gpu_dirty) {//只有首帧或帧缓冲有改动时才刷新窗口
+      if (first_sync || gpu_dirty) {
         gpu_window_refresh();
-        gpu_dirty = 0;//刷新后清除
-        //只有首帧或脏帧才刷新,减少空刷新带来的CPU开销
+        gpu_dirty = 0;
       }
 #endif
-
-      gpu_sync = 0;//写1触发后清零，下一次必须再次写SYNC才会触发刷新
+      gpu_sync = 0;
     }
     return;
   }
 
-  if (addr_aligned == (MMIO_SERIAL_ADDR & ~0x3u)) {//串口寄存器按内存语义写入，允许按字节写，未被mask选中的字节保持不变
-    //串口寄存器按mask逐字节提取输出，可兼容sb/sh/sw等不同写宽指令
-
-    for (int i = 0; i < 4; i++) {
-      if (mask & (1u << i)) {//被mask选中的字节才处理
+  if (addr_aligned == (MMIO_SERIAL_ADDR & ~0x3u)) {
+//按byte-mask提取字符,兼容sb/sh/sw写串口
+    int i;
+    for (i = 0; i < 4; i++) {
+      if (mask & (1u << i)) {
         unsigned ch = (unsigned)((data >> (8 * i)) & 0xffu);
-        serial_push_char((char)ch);
+        serial_putc((char)ch);
       }
     }
     return;

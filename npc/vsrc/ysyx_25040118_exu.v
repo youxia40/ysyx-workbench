@@ -44,20 +44,9 @@ module ysyx_25040118_exu (
 
     `ifndef SYNTHESIS//综合不使用
     import "DPI-C" function void npc_ebreak(input int pc);
-    import "DPI-C" function void npc_ftrace_log(
-        input longint unsigned pc,
-        input longint unsigned target_pc,
-        input int is_call
-    );
-    import "DPI-C" function void npc_etrace_trap(
-        input int unsigned no,
-        input int unsigned epc,
-        input int unsigned handler
-    );
-    import "DPI-C" function void npc_etrace_mret(
-        input int unsigned from,
-        input int unsigned to
-    );
+    import "DPI-C" function void npc_ftrace_log(input longint unsigned pc, input longint unsigned target_pc, input int is_call);
+    import "DPI-C" function void npc_etrace_trap(input int unsigned no, input int unsigned epc, input int unsigned handler);
+    import "DPI-C" function void npc_etrace_mret(input int unsigned from, input int unsigned to);
     `endif
 
     //提前解码rd和rs1,后续用于识别call/ret模式
@@ -99,6 +88,7 @@ module ysyx_25040118_exu (
             endcase
         end
     end
+
 
     //ftrace调用:
     //jal且rd!=x0视为调用
