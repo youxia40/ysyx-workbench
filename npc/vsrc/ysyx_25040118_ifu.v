@@ -33,6 +33,7 @@ module ysyx_25040118_ifu (
 
     //地址合法时通过DPI接口读取内存,否则输出NOP指令(ADDI x0,x0,0)
     `ifndef SYNTHESIS
+    //32'h00000013:将x0的值+0，zai写回x0。
     assign inst = valid_addr ? npc_pmem_read(phys_addr) : 32'h00000013;     //NOP
     `else
     assign inst = valid_addr ? 'h00000000 : 32'h00000013;     //NOP

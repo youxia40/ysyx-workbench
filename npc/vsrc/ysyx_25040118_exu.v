@@ -30,7 +30,6 @@ module ysyx_25040118_exu (
     input [31:0] csr_rdata,
     input [31:0] csr_mtvec,
     input [31:0] csr_mepc,
-    input [31:0] lsu_load_data,//LSU的load结果
     input ebreak, //来自IDU的ebreak信号,用于触发DPI调用
     output reg [31:0] result,
     output reg [31:0] next_pc,
@@ -122,14 +121,10 @@ module ysyx_25040118_exu (
     wire [31:0] alu_op2 = is_alu_imm ? imm : src2;
 
     //写回结果选择:
-    //load由LSU提供已扩展数据
-    //auipc/lui/jump走专用路径
+    //auipc/lui/jump/csr走专用路径
     //其余由alu_ctrl驱动ALU运算
     always @(*) begin
-        if (is_load) begin
-            result = lsu_load_data;
-        end
-        else if (is_csr_any) begin
+        if (is_csr_any) begin
             result = csr_rdata;
         end
         else if (is_auipc) begin

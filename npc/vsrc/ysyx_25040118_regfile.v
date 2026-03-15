@@ -16,7 +16,7 @@ module ysyx_25040118_regfile (
     import "DPI-C" function void npc_set_reg(input int idx, input int value);
     `endif
 
-    logic [31:0] rf [0:15];//寄存器堆数组,x0~x15,logic类型支持综合和仿真
+    reg [31:0] rf [0:15];
 
     //写端口,复位清零;正常时在wen有效且waddr!=0时写入
     always @(posedge clk) begin

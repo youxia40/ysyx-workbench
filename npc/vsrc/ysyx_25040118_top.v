@@ -39,13 +39,10 @@ module ysyx_25040118_top (
 
     wire [31:0] regfile_rdata1; //rs1读数据
     wire [31:0] regfile_rdata2; //rs2读数据
-    wire [31:0] exu_result;     //写回数据
+    wire [31:0] exu_result;     //EXU结果
+    wire [31:0] wb_data;        //WBU写回数据
+    wire wb_wen;                //WBU写回使能
 
-
-    //寄存器写使能:rd非x0且不是store/branch/system指令
-    wire idu_is_csr_any = idu_is_csrrw | idu_is_csrrs | idu_is_csrrc |
-                          idu_is_csrrwi | idu_is_csrrsi | idu_is_csrrci;
-    wire reg_wen = (|idu_rd) && !idu_is_store && !idu_is_branch && (!idu_is_system || idu_is_csr_any);
 
     wire [11:0] exu_csr_addr;
     wire [31:0] exu_csr_wdata;
@@ -106,8 +103,8 @@ module ysyx_25040118_top (
         .rst   (rst),
         .stop  (stop),
         .waddr (idu_rd),
-        .wdata (exu_result),
-        .wen   (reg_wen),
+        .wdata (wb_data),
+        .wen   (wb_wen),
         .raddr1(idu_rs1),
         .rdata1(regfile_rdata1),
         .raddr2(idu_rs2),
@@ -146,7 +143,6 @@ module ysyx_25040118_top (
         .csr_mtvec(csr_mtvec),
         .csr_mepc (csr_mepc),
         .result   (exu_result),
-        .lsu_load_data(lsu_load_data),
         .next_pc  (exu_next_pc),
         .ebreak   (idu_ebreak),
         .csr_addr (exu_csr_addr),
@@ -185,6 +181,24 @@ module ysyx_25040118_top (
         .is_load  (idu_is_load),
         .is_store (idu_is_store),
         .load_data(lsu_load_data)
+    );
+
+    ysyx_25040118_wbu wbu_module (
+        .rd         (idu_rd),
+        .is_load    (idu_is_load),
+        .is_store   (idu_is_store),
+        .is_branch  (idu_is_branch),
+        .is_system  (idu_is_system),
+        .is_csrrw   (idu_is_csrrw),
+        .is_csrrs   (idu_is_csrrs),
+        .is_csrrc   (idu_is_csrrc),
+        .is_csrrwi  (idu_is_csrrwi),
+        .is_csrrsi  (idu_is_csrrsi),
+        .is_csrrci  (idu_is_csrrci),
+        .exu_result (exu_result),
+        .lsu_data   (lsu_load_data),
+        .wb_data    (wb_data),
+        .wb_wen     (wb_wen)
     );
 
 
