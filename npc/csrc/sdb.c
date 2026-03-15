@@ -83,7 +83,7 @@ static void eval_expr_cmd(const char *e) {
 
 //批量执行表达式测试文件并汇总通过率
 static void expr_test() {
-  const char *fn = "input";//测试样例文件(每行:期望值+表达式)
+  const char *fn = "input";
   FILE *fp = fopen(fn, "r");
   if (!fp) {
     printf("cannot open %s\n", fn);
