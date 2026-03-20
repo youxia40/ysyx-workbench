@@ -1,8 +1,6 @@
 #include "itrace.h"
 #include <stdio.h>
 
-
-
 #if NPC_ENABLE_ITRACE
 
 #include <llvm-c/Disassembler.h>
@@ -21,7 +19,6 @@ typedef struct {//指令追踪记录结构体,保存PC/指令/反汇编字符串
 static ItraceRecord iringbuf[IRINGBUF_SIZE];//最近指令环形缓冲
 static int iring_head = 0;//下一个写入位置
 static bool iring_full = false;//是否已经写满一圈
-
 
 static LLVMDisasmContextRef disasm = NULL;//LLVM反汇编器上下文,全局
 

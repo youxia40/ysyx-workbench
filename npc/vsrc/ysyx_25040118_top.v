@@ -220,7 +220,7 @@ module ysyx_25040118_top (
         else if (!stop) begin //仅在运行态更新停机判定
             if (ifu_pc == last_pc) begin
                 same_pc_count <= same_pc_count + 1;
-                if (same_pc_count > 100) begin
+                if (same_pc_count > 1000000) begin
                     stop <= 1'b1; //PC长期不变化则判定为死循环
 
                 end

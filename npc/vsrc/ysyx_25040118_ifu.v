@@ -6,7 +6,7 @@ module ysyx_25040118_ifu (
     output [31:0] pc,
     output [31:0] inst
 );
-    parameter VIRT_MEM_BASE = 32'h80000000;//虚拟地址基址
+    parameter VIRT_MEM_BASE = 32'h80000000;//基址
     parameter PHYS_MEM_SIZE = 32'h08000000;//物理内存大小128MB
 
     `ifndef SYNTHESIS

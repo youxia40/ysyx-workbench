@@ -11,7 +11,7 @@ int npc_pmem_read(uint32_t paddr) {
   uint32_t vaddr = MEM_BASE + paddr;//DPI传入的是相对MEM_BASE偏移,先还原虚拟地址
   int data = 0;
 #if NPC_ENABLE_ASSERT
-  assert((vaddr & 0x3u) == (paddr & 0x3u));
+  assert((vaddr & 0x3u) == (paddr & 0x3u));//检查访问地址的对齐方式是否正确
 #endif
 
   uint32_t aligned = vaddr & ~0x3u;//统一按word对齐访问后端

@@ -28,7 +28,7 @@
 #define MEM_BASE   0x80000000//主存起始地址
 //#define MAX_CYCLES 100000000
 
-//mtrace配套
+//mtrace
 #define MTRACE_ADDR_LO 0x00000000u//访存地址过滤下限
 #define MTRACE_ADDR_HI 0xffffffffu//访存地址过滤上限
 #define MTRACE_LOG_READ  0//是否记录读访存

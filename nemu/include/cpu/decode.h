@@ -24,7 +24,7 @@ typedef struct Decode {
   vaddr_t dnpc; // dynamic next pc动态pc
   ISADecodeInfo isa;
   IFDEF(CONFIG_ITRACE, char logbuf[128]);
-} Decode;                                                 //译码结构体
+} Decode;  //译码结构体
 
 // --- pattern matching mechanism ---
 __attribute__((always_inline))

@@ -18,7 +18,7 @@
 #define GPU_VMEM_SIZE (GPU_WIDTH * GPU_HEIGHT * 4u)
 
 #define KEYDOWN_MASK 0x8000u
-#define INPUT_Q_LEN 1024
+#define INPUT_Q_LEN 1024//输入事件队列长度,超过时覆盖最老事件
 
 #define NPC_KEYS(f) \
   f(ESCAPE) f(F1) f(F2) f(F3) f(F4) f(F5) f(F6) f(F7) f(F8) f(F9) f(F10) f(F11) f(F12) \
@@ -50,8 +50,6 @@ static int uart_rx_tail = 0;//串口队列写指针
 
 static uint8_t gpu_vmem[GPU_VMEM_SIZE];//软件帧缓冲
 static uint32_t gpu_sync = 0;//SYNC寄存器镜像
-static int gpu_sync_seen = 0;//是否收到过首个SYNC
-static int gpu_dirty = 0;//帧缓冲是否有改动
 
 static uint64_t rtc_latched_us = 0;//读LO时锁存值
 static uint64_t rtc_boot_us = 0;//启动时间基准
@@ -72,8 +70,7 @@ static int keymap_inited = 0;//键码映射是否已初始化
 #endif
 
 //输入环形队列
-static inline int q_next(int idx) {
-//索引推进到下一个槽位
+static inline int q_next(int idx) {//索引推进到下一个槽位
   return (idx + 1) % INPUT_Q_LEN;
 }
 
@@ -97,8 +94,7 @@ static inline uint32_t kbd_dequeue(void) {
   return key;
 }
 
-static inline void uart_enqueue(uint8_t ch) {
-//串口接收队列也用同样策略
+static inline void uart_enqueue(uint8_t ch) {//队列满时覆盖最老事件,这样最新输入不会丢
   int next = q_next(uart_rx_tail);
   if (next == uart_rx_head) {
     uart_rx_head = q_next(uart_rx_head);
@@ -303,6 +299,11 @@ static inline void pump_sdl_events(void) {
 //未映射按键直接忽略,避免污染键盘设备语义
         continue;
       }
+      if (am_key == NPC_KEY_UP || am_key == NPC_KEY_DOWN ||
+          am_key == NPC_KEY_LEFT || am_key == NPC_KEY_RIGHT) {
+    //按需求屏蔽方向键事件
+        continue;
+      }
 
       if (ev.type == SDL_KEYDOWN) {
 //在键盘设备里上报keydown事件
@@ -408,14 +409,12 @@ static inline void fb_write_word(uint32_t addr_aligned, uint32_t data, uint8_t m
 //全字写单独走快路径
       uint32_t *dst = (uint32_t *)(void *)(gpu_vmem + off);
       *dst = data;
-      gpu_dirty = 1;
       return;
     }
 
     for (i = 0; i < 4; i++) {
       if (mask & (1u << i)) {
         gpu_vmem[off + i] = (uint8_t)((data >> (8 * i)) & 0xffu);
-        gpu_dirty = 1;
       }
     }
   }
@@ -497,18 +496,9 @@ void mmio_write(uint32_t addr_aligned, uint32_t data, uint8_t mask) {
     }
 
     if (gpu_sync) {
-//检测到SYNC被置位就触发刷新,然后清零
-      int first_sync = !gpu_sync_seen;
-      if (!gpu_sync_seen) {
-        gpu_sync_seen = 1;
-        fprintf(stderr, "[NPC][GPU] first SYNC write received\n");
-      }
-
+//NEMU风格:SYNC非0即刷新并清零
 #if NPC_USE_SDL
-      if (first_sync || gpu_dirty) {
-        gpu_window_refresh();
-        gpu_dirty = 0;
-      }
+      gpu_window_refresh();
 #endif
       gpu_sync = 0;
     }

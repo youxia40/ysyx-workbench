@@ -292,11 +292,11 @@ static int cmd_help(char *args) {
   return 0;
 }
 
-void sdb_set_batch_mode() {                                   //设置批处理模式
+void sdb_set_batch_mode() {  //设置批处理模式
   is_batch_mode = true;
 }
 
-void sdb_mainloop() {                                            //nemu交互（sdb主循环）
+void sdb_mainloop() {        //nemu交互（sdb主循环）
   if (is_batch_mode) {
     cmd_c(NULL);
     return;
