@@ -2,11 +2,14 @@
 #include "Vysyx_25040118_top.h"
 #include "wave.h"
 #include "sdb.h"
-#include "itrace.h"
-#include "mtrace.h"
-#include "ftrace.h"
+#include "trace/itrace.h"
+#include "trace/mtrace.h"
+#include "trace/ftrace.h"
+#include "trace/etrace.h"
 #include "difftest.h"
 #include "loader.h"
+#include "device.h"
+#include "dpi.h"
 
 #include <verilated.h>
 #include <cstdlib>
@@ -20,7 +23,7 @@ extern NPCContext npc_ctx;
 
 static volatile sig_atomic_t g_stop_by_signal = 0;
 
-static void on_signal(int sig) {
+static void on_signal(int sig) {//信号处理，设置全局停止标志和记录信号类型
   g_stop_by_signal = sig;
 }
 
@@ -31,20 +34,19 @@ static void parse_args(int argc, char **argv,const char **image,bool *batch) {
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], "-e") == 0 && i + 1 < argc) {//指定镜像路径参数
       *image = argv[++i];
-    } else if (strcmp(argv[i], "-b") == 0) {//批处理模式参数(禁用SDB交互)
+    } else if (strcmp(argv[i], "-b") == 0) {//批处理模式参数
       *batch = true;
     } else {
-      if (*image == nullptr) {//如果还有未解析的参数且镜像路径尚未设置,则把第一个非选项参数当作镜像路径
+      if (*image == nullptr) {//把第一个非选项参数当作镜像路径（即直接指定镜像路径而不使用-e选项）
         *image = argv[i];
       }
     }
   }
 }
 
-// NPC主入口：完成初始化、主循环执行与退出判定
 int main(int argc, char **argv) {
   const char *image = nullptr;//镜像路径(ELF或BIN)
-  bool batch = false;//是否批处理模式(禁用SDB交互)
+  bool batch = false;//是否批处理模式
   parse_args(argc, argv, &image, &batch);//解析命令行参数
 #if NPC_ENABLE_ASSERT
   assert(argc >= 1);
@@ -65,15 +67,18 @@ int main(int argc, char **argv) {
   std::memset(&npc_ctx, 0, sizeof(npc_ctx));//清零全局上下文,保证状态可重复
 
 
-  //把common.h里面设置的宏开关进行赋值
+
   npc_ctx.debug.sdb_enabled = NPC_ENABLE_SDB && !batch;
   npc_ctx.debug.difftest_enabled = NPC_ENABLE_DIFFTEST;
   npc_ctx.debug.itrace_enabled = NPC_ENABLE_ITRACE;
   npc_ctx.debug.mtrace_enabled = NPC_ENABLE_MTRACE;
+  npc_ctx.debug.dtrace_enabled = NPC_ENABLE_DTRACE;
   npc_ctx.debug.ftrace_enabled = NPC_ENABLE_FTRACE;
   npc_ctx.debug.etrace_enabled = NPC_ENABLE_ETRACE;
 
-  npc_load_image(&npc_ctx, image);//自动识别ELF/BIN并完成装载
+  init_device();
+
+  npc_load_image(&npc_ctx, image);//识别ELF/BIN并完成装载
 
   printf("[NPC] image loaded,entry=0x%08x\n", npc_ctx.entry);
   printf("[NPC] mem base=0x%08x,size=%dMB\n",
@@ -143,6 +148,14 @@ int main(int argc, char **argv) {
       npc_ctx.inst = top->inst_out;//提交当前指令
       //只在本周期未被DPI终止时提交,避免把trap后的无效输出当作最后一条提交指令
     }
+
+#if NPC_ENABLE_ITRACE
+    if (!dpi_stop && !top->rst) {
+      //每条已提交指令执行一次itraceriscv
+      npc_itrace_log((uint64_t)npc_ctx.pc, npc_ctx.inst);
+    }
+#endif
+
     npc_ctx.cycles++;//全局周期计数
     npc_ctx.debug.cycle_count++;//调试周期计数
 
@@ -153,6 +166,11 @@ int main(int argc, char **argv) {
       difftest_step(&npc_ctx);
     }
 #endif
+
+    if (!top->rst && !dpi_stop) {
+      //按NEMU风格进行周期性设备更新
+      device_update();
+    }
 
     if (top->stop) {
       npc_ctx.stop = true;//RTL死循环检测触发停止

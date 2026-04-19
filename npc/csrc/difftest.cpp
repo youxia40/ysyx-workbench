@@ -108,7 +108,7 @@ static void* try_open_so(const char **used_path) {
 }
 
 
-// 初始化difftest环境并把DUT初始状态同步到REF
+//初始化difftest环境并把DUT初始状态同步到REF
 void difftest_init(NPCContext* ctx) {
     if (!ctx->debug.difftest_enabled) {
         return;
@@ -173,7 +173,7 @@ void difftest_init(NPCContext* ctx) {
 }
 
 
-// 执行一步difftest并比较状态
+//=执行一步difftest并比较状态
 void difftest_step(NPCContext* ctx) {
     if (!ctx->debug.difftest_enabled) {//
         return;
@@ -183,11 +183,11 @@ void difftest_step(NPCContext* ctx) {
     }
 
     //捕捉当前指令引起的状态变化，先保存执行前的状态，再执行REF，最后保存执行后的状态进行比较
-    DifftestCPUState ref_before{};//执行前的REF状态，主要用于记录触发状态变化的指令PC,便于后续定位问题指令
+    DifftestCPUState ref_before{};//执行前的REF状态，记录触发状态变化的指令PC
     ref_regcpy(&ref_before, DIFFTEST_TO_DUT);//先把REF当前寄存器态同步到DUT,便于后面比较
     //先抓ref_before.pc,用于把后续不一致精准定位到“哪一条指令”触发
 
-    //对MMIO的load/store不在REF执行，避免NEMU断言退出
+    //对MMIO的load/store不在REF执行
     if (ref_before.pc >= MEM_BASE && ref_before.pc < MEM_BASE + MEM_SIZE) {
         uint32_t inst = (uint32_t)npc_pmem_read(ref_before.pc - MEM_BASE);
         if (is_mmio_ls_inst(inst, ref_before.gpr)) {
@@ -200,7 +200,6 @@ void difftest_step(NPCContext* ctx) {
 
 
     ref_exec(1);
-
 
 
     DifftestCPUState ref_after{};//执行后的REF状态
@@ -216,7 +215,7 @@ void difftest_step(NPCContext* ctx) {
     //比较PC
     if (ref_after.pc != dut_after.pc) {//PC不一致
         printf("[DiffTest] PC mismatch at instruction PC = 0x%08x\n", instr_pc);
-        printf("           Next PC after this instruction: DUT=0x%08x, REF=0x%08x\n",
+        printf("        Next PC after this instruction: DUT=0x%08x, REF=0x%08x\n",
                dut_after.pc, ref_after.pc);
         printf("Hint: This usually indicates a bug in control-flow logic, e.g.\n");
         printf("      - wrong jump/branch target calculation\n");
@@ -260,11 +259,10 @@ void difftest_step(NPCContext* ctx) {
     }
 }
 
-#else//NPC_ENABLE_DIFFTEST==0
+#else
 
-// 关闭difftest时的空实现
+
 void difftest_init(NPCContext* ctx) { (void)ctx; }
-// 关闭difftest时的空实现
 void difftest_step(NPCContext* ctx) { (void)ctx; }
 
 #endif

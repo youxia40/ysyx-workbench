@@ -9,6 +9,7 @@ module ysyx_25040118_csr (
     input trap_we,//写CSR时触发陷阱寄存器更新
     input [31:0] trap_epc,
     input [31:0] trap_cause,
+    
     output reg [31:0] csr_rdata,
     output [31:0] csr_mtvec,
     output [31:0] csr_mepc
@@ -56,7 +57,7 @@ M极csr常用列表:
 
     always @(posedge clk) begin
         if (rst) begin
-            mstatus <= 32'h1800;//和nemuinit.c文件里面的mstatus初始值保持一致，保证diff测试机制正常工作
+            mstatus <= 32'h1800;//和nemu的init.c文件里面的mstatus初始值保持一致，保证diff测试机制正常工作
             mepc <= 32'b0;
             mcause <= 32'b0;
             mtvec <= 32'b0;

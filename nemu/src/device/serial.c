@@ -46,8 +46,8 @@ static void serial_io_handler(uint32_t offset, int len, bool is_write) {//串口
       if (is_write) serial_putc(serial_base[0]);//写操作，发送字符
       else {
         int ch = getchar();
-        if (ch == EOF) {
-          clearerr(stdin);
+        if (ch == EOF) {//EOF，标准输入流结束标志
+          clearerr(stdin);//stdin是标准输入流，clearerr函数用于清除文件流的错误标志和EOF标志，以便下一次读取操作能够正常进行
           serial_base[0] = 0xff;
         } else {
           serial_base[0] = (uint8_t)ch;

@@ -14,9 +14,8 @@ struct Context {//处理器上下文结构体
   // TODO: fix the order of these members to match trap.S
   uintptr_t gpr[NR_REGS];//通用寄存器镜像，对应/home/pz40/ysyx-workbench/abstract-machine/am/src/riscv/nemu/trap.S先保存x寄存器
   uintptr_t mcause, mstatus, mepc;
-  //mepc寄存器 - 存放触发异常的PC
   //mstatus寄存器 - 存放处理器的状态，在nemu/src/isa/riscv32/init.c将mstatus初始化为0x1800
-  //mcause寄存器 - 存放触发异常的原因
+
 
   void *pdir;//地址空间根指针
   //riscv/nemu/trap.S将CONTEXT_SIZE设置为((NR_REGS + 4) * XLEN)，以确保pdir成员被正确保存和恢复

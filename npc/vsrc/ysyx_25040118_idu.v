@@ -4,6 +4,7 @@ module ysyx_25040118_idu (
     input stop,
     input [31:0] inst,
     input [31:0] pc,
+    
     output reg [4:0] rd,
     output reg [4:0] rs1,
     output reg [4:0] rs2,

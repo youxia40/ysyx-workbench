@@ -19,7 +19,7 @@
 #define SCREEN_W (MUXDEF(CONFIG_VGA_SIZE_800x600, 800, 400))
 #define SCREEN_H (MUXDEF(CONFIG_VGA_SIZE_800x600, 600, 300))
 
-static uint32_t screen_width() {//屏幕宽度
+static uint32_t screen_width() {//屏宽
   return MUXDEF(CONFIG_TARGET_AM, io_read(AM_GPU_CONFIG).width, SCREEN_W);
 }
 
@@ -78,11 +78,11 @@ void vga_update_screen() {//外部调用接口：每当vga同步寄存器被写�
  
   if (vgactl_port_base[1]) {
     update_screen();
-    vgactl_port_base[1] = 0;
+    vgactl_port_base[1] = 0;//清零同步寄存器
   }
 }
 
-void init_vga() {
+void init_vga() {//把vga控制寄存器和帧缓冲映射到地址空间，并进行初始化
   vgactl_port_base = (uint32_t *)new_space(8);
   vgactl_port_base[0] = (screen_width() << 16) | screen_height();//vga控制寄存器，[0]屏幕大小寄存器，故[1]同步寄存器
 #ifdef CONFIG_HAS_PORT_IO
@@ -92,7 +92,7 @@ void init_vga() {
 #endif
 
   vmem = new_space(screen_size());//分配帧缓冲空间
-  add_mmio_map("vmem", CONFIG_FB_ADDR, vmem, screen_size(), NULL);//把帧缓冲映射到MMIO地址空间，允许按内存dingyi访问
+  add_mmio_map("vmem", CONFIG_FB_ADDR, vmem, screen_size(), NULL);//把帧缓冲映射到MMIO地址空间
   IFDEF(CONFIG_VGA_SHOW_SCREEN, init_screen());
   IFDEF(CONFIG_VGA_SHOW_SCREEN, memset(vmem, 0, screen_size()));
 }

@@ -1,10 +1,35 @@
 #include "dpi.h"
 #include "mem.h"
 #include "mmio.h"
-#include "ftrace.h"
-#include "itrace.h"
-#include "mtrace.h"
-#include "etrace.h"
+#include "trace/ftrace.h"
+#include "trace/itrace.h"
+#include "trace/mtrace.h"
+#include "trace/etrace.h"
+
+static inline int mask_to_len(uint8_t mask) {
+  if (mask == 0x1 || mask == 0x2 || mask == 0x4 || mask == 0x8) {
+    return 1;
+  }
+  if (mask == 0x3 || mask == 0x6 || mask == 0xc) {
+    return 2;
+  }
+  return 4;
+}
+
+static inline int mask_to_off(uint8_t mask) {
+  if (mask & 0x1) return 0;
+  if (mask & 0x2) return 1;
+  if (mask & 0x4) return 2;
+  if (mask & 0x8) return 3;
+  return 0;
+}
+
+static inline int mmio_read_len(uint32_t addr) {
+  if ((addr & ~0x3u) == (MMIO_SERIAL_ADDR & ~0x3u)) {
+    return 1;
+  }
+  return 4;
+}
 
 //把核心给出的地址转换后分发到MMIO或主存
 int npc_pmem_read(uint32_t paddr) {
@@ -17,7 +42,7 @@ int npc_pmem_read(uint32_t paddr) {
   uint32_t aligned = vaddr & ~0x3u;//统一按word对齐访问后端
 
   if (mmio_in_range(aligned)) {
-    return (int)mmio_read(aligned);//命中设备地址则走设备读通路
+    return (int)mmio_read(aligned, mmio_read_len(aligned));//命中设备地址则走设备读通路
   }
 
   data = npc_mem_read(aligned);
@@ -38,31 +63,18 @@ void npc_pmem_write(uint32_t paddr, uint32_t data, uint8_t mask) {
 #endif
 
   if (mmio_in_range(aligned)) {
-    mmio_write(aligned, data, mask);//MMIO地址走设备写路径
-#if NPC_ENABLE_MTRACE
-    int len = 4;//从掩码反推写操作的长度
-    if (mask == 0x1 || mask == 0x2 || mask == 0x4 || mask == 0x8) {
-      len = 1;
-    }
-    else if (mask == 0x3 || mask == 0x6 || mask == 0xc) {//半字写
-      len = 2;
-    }
-    npc_mtrace_log(0, aligned, len, data);
-#endif
+    int len = mask_to_len(mask);
+    int off = mask_to_off(mask);
+    uint32_t mmio_addr = aligned + (uint32_t)off;
+    uint32_t mmio_data = (len == 4) ? data : (data >> (off * 8));
+    mmio_write(mmio_addr, len, mmio_data);//MMIO地址走设备写路径
     return;
   }
 
   npc_mem_write(aligned, data, mask);//普通地址写回主存
 
 #if NPC_ENABLE_MTRACE
-  int len = 4;
-  if (mask == 0x1 || mask == 0x2 || mask == 0x4 || mask == 0x8) {//单字节写
-    len = 1;
-  }
-  else if (mask == 0x3 || mask == 0x6 || mask == 0xc) {
-    len = 2;
-  }
-  npc_mtrace_log(0, aligned, len, data);
+  npc_mtrace_log(0, aligned, mask_to_len(mask), data);
 #endif
 }
 

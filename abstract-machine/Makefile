@@ -53,6 +53,9 @@ WORK_DIR  = $(shell pwd)
 DST_DIR   = $(WORK_DIR)/build/$(ARCH)
 $(shell mkdir -p $(DST_DIR))
 
+AM_KERNELS_HOME = $(realpath $(AM_HOME)/../am-kernels)
+FCEUX_AM_HOME   = $(realpath $(AM_HOME)/../fceux-am)
+
 ### Compilation targets (a binary image or archive)/编译目标（一个二进制映像或存档）
 IMAGE_REL = build/$(NAME)-$(ARCH)
 IMAGE     = $(abspath $(IMAGE_REL))#最终生成的镜像文件（绝对路径）
@@ -60,7 +63,7 @@ ARCHIVE   = $(WORK_DIR)/build/$(NAME)-$(ARCH).a
 
 ### Collect the files to be linked: object files (`.o`) and libraries (`.a`)/收集要链接的文件：目标文件（'o'）和库（'a'）
 OBJS      = $(addprefix $(DST_DIR)/, $(addsuffix .o, $(basename $(SRCS))))
-LIBS     := $(sort $(LIBS) am klib) # lazy evaluation ("=") causes infinite recursions/惰性求值（'='）导致无限递归
+LIBS     := $(sort $(LIBS) am klib) #默认依赖am和klib
 LINKAGE   = $(OBJS) \
   $(addsuffix -$(ARCH).a, $(join \
     $(addsuffix /build/, $(addprefix $(AM_HOME)/, $(LIBS))), \
@@ -89,10 +92,21 @@ CFLAGS   += -O2 -MMD -Wall -Werror $(INCFLAGS) \
             -D__PLATFORM__=$(PLATFORM) -D__PLATFORM_$(shell echo $(PLATFORM) | tr a-z A-Z | tr - _) \
             -DARCH_H=\"$(ARCH_H)\" \
             -fno-asynchronous-unwind-tables -fno-builtin -fno-stack-protector \
-            -Wno-main -U_FORTIFY_SOURCE -fvisibility=hidden
+			-Wno-main -U_FORTIFY_SOURCE -fvisibility=hidden $(EXTRA_CFLAGS)
 CXXFLAGS +=  $(CFLAGS) -ffreestanding -fno-rtti -fno-exceptions
 ASFLAGS  += -MMD $(INCFLAGS)
 LDFLAGS  += -z noexecstack $(addprefix -T, $(LDSCRIPTS))
+
+# If a parent RT-Thread build exports host-side include flags into AM app builds,
+# system headers may be shadowed (e.g. sys/select.h -> rtconfig.h). Strip only
+# RT-Thread-specific leaked flags for app projects under am-kernels/fceux-am.
+ifneq ($(findstring -D__RTTHREAD__,$(CFLAGS)),)
+ifneq ($(filter $(AM_KERNELS_HOME)% $(FCEUX_AM_HOME)%,$(WORK_DIR)),)
+LEAKED_RTTHREAD_CFLAGS = $(filter -D__RTTHREAD__ -DHAVE_CCONFIG_H -I%rt-thread%,$(CFLAGS))
+CFLAGS   := $(filter-out $(LEAKED_RTTHREAD_CFLAGS),$(CFLAGS))
+CXXFLAGS := $(CFLAGS) -ffreestanding -fno-rtti -fno-exceptions
+endif
+endif
 
 ## 4. Arch-Specific Configurations/特定于 Arch 的配置
 
@@ -122,15 +136,16 @@ $(DST_DIR)/%.o: %.S
 	@$(AS) $(ASFLAGS) -c -o $@ $(realpath $<)
 
 ### Rule (recursive make): build a dependent library (am, klib, ...)/规则（递归 make）：构建一个依赖库（am，klib，...）
+SUBMAKE_EXTRA_CFLAGS = $(if $(findstring -D__RTTHREAD__,$(CFLAGS)),-D__RTTHREAD__,)
 $(LIBS): %:
-	@$(MAKE) -s -C $(AM_HOME)/$* archive
+	@env -u CFLAGS $(MAKE) -s -C $(AM_HOME)/$* archive EXTRA_CFLAGS=$(SUBMAKE_EXTRA_CFLAGS) $(if $(SUBMAKE_EXTRA_CFLAGS),-B,)
 
 ### Rule (link): objects (`*.o`) and libraries (`*.a`) -> `IMAGE.elf`, the final ELF binary to be packed into image (ld)\
 规则（链接）：对象（'*.o'）和库（'*.a'）-> 'IMAGE.elf'，最终的 ELF 二进制文件将被打包到映像中（ld）
 $(IMAGE).elf: $(LINKAGE) $(LDSCRIPTS)
 	@echo \# Creating image [$(ARCH)]
 	@echo + LD "->" $(IMAGE_REL).elf
-ifneq ($(filter $(ARCH),native),)
+ifneq ($(filter $(ARCH),native),)#处理native架构，直接调用g++链接
 	@$(CXX) -o $@ -Wl,--whole-archive $(LINKAGE) -Wl,-no-whole-archive $(LDFLAGS_CXX)
 else
 	@$(LD) $(LDFLAGS) -o $@ --start-group $(LINKAGE) --end-group

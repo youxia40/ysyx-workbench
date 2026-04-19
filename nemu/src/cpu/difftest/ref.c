@@ -19,7 +19,7 @@
 #include <memory/paddr.h>
 #include <string.h>
 
-//在DUT host内存buf和REF guest内存addr之间拷贝
+//在DUT host内存buf和REF guest内存addr之间拷贝n字节，direction指定了拷贝的方向
 //direction==DIFFTEST_TO_DUT:REF -> DUT  (guest_to_host(addr) -> buf)
 //direction==DIFFTEST_TO_REF:DUT -> REF  (buf -> guest_to_host(addr))
 __EXPORT void difftest_memcpy(paddr_t addr, void *buf, size_t n, bool direction) {//内存同步接口，约定中地址是REF的物理地址，buf是DUT的host地址
@@ -31,8 +31,8 @@ __EXPORT void difftest_memcpy(paddr_t addr, void *buf, size_t n, bool direction)
 }
 
 //在NEMU的cpu和外部DUT状态之间拷贝寄存器+PC
-//direction==DIFFTEST_TO_DUT:cpu -> dut
-//direction==DIFFTEST_TO_REF:dut -> cpu
+//direction==DIFFTEST_TO_DUT,获取REF的寄存器状态到dut
+//direction==DIFFTEST_TO_REF,设置REF的寄存器状态为dut
 __EXPORT void difftest_regcpy(void *dut, bool direction) {
   if (direction == DIFFTEST_TO_DUT) {
     memcpy(dut, &cpu, DIFFTEST_REG_SIZE);

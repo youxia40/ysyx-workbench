@@ -16,6 +16,7 @@ NPCContext npc_ctx = {
         .difftest_enabled = false,//差分测试开关
         .itrace_enabled = false,//指令追踪开关
         .mtrace_enabled = false,//访存追踪开关
+        .dtrace_enabled = false,//设备访存追踪开关
         .ftrace_enabled = false,//函数追踪开关
         .cycle_count = 0,//调试视角周期计数
         .hit_good_trap = false,//是否命中GOODTRAP

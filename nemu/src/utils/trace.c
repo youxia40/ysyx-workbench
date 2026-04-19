@@ -1,4 +1,5 @@
-#include <common.h>                             //包含通用的头文件，定义了一些常用的宏和类型
+#include <common.h>
+#include <isa.h>
 #include <elf.h>
 #include <generated/autoconf.h>
 #include <device/map.h>
@@ -28,6 +29,13 @@ void itrace_inst(word_t pc, uint32_t inst) {                                 //�
 //nemu/src/utils/filelist.mk规定，关闭trace功能后，disasm.c不会被编译，但itrace_display_inst仍然会被调用，导致链接错误
 #if defined(CONFIG_ITRACE) || defined(CONFIG_IQUEUE)
 void itrace_display_inst() {                                                               //显示指令环形缓冲区内容
+    //正常结束时不打印
+    if (nemu_state.state == NEMU_END && nemu_state.halt_ret == 0) {
+        memset(iringbuf, 0, sizeof(iringbuf));
+        cur_inst = 0;
+        return;
+    }
+
     char line[64];                                                          //用于存储每行输出的字符串
     int error_pos = (cur_inst - 1 + INST_NUM) % INST_NUM;                //错误指令位置,当前指令位置减1, 由于cur_inst是下一个空槽, 所以需要减1来获取最后一条指令的位置
     
@@ -161,14 +169,14 @@ void dtrace_write(paddr_t addr, int len, word_t data, const char *dev) { (void)a
 ///FMT等格式化宏定义在nemu/include/common.h中，用于打印不同类型的格式化字符串
 
 void etrace_trap(word_t no, vaddr_t epc, vaddr_t handler) {
-    //记录发生的中断/异常信息，是陷入异常时从“mepc”跳到“异常入口地址”
+    //记录发生的中断/异常信息，是陷入异常时从“mepc”跳到“异常入口地址__am_asm_trap”
 
     const char *type = ((no >> (sizeof(word_t) * 8 - 1)) & 1) ? "IRQ" : "EXC";//根据no最高位判断是中断还是异常
     printf("\n[etrace] trap %-3s no=" FMT_WORD " epc=" FMT_WORD " -> " FMT_WORD "\n", type, no, epc, handler);//trap是事件追踪，打印事件类型、编号、发生地址和处理函数地址
 }
 
 void etrace_mret(vaddr_t from, vaddr_t to) {
-    //记录从异常返回的信息，是从mret跳到“mepc的下一条指令”
+    //记录从异常返回的信息，是从mret跳到“mepc的下一条指令ret”
     printf("[etrace] mret pc=" FMT_WORD " -> " FMT_WORD "\n", from, to);
 }
 
@@ -187,8 +195,6 @@ void etrace_mret(vaddr_t from, vaddr_t to) {//mret事件追踪
 
 
 
-
-
 //---------------------------ftrace---------------------------
 
 #include <stdio.h>
@@ -196,7 +202,7 @@ void etrace_mret(vaddr_t from, vaddr_t to) {//mret事件追踪
 #include <string.h>
 #include <elf.h>
 
-#define MAX_SYMBOLS 512                                                             //最大符号数量
+#define MAX_SYMBOLS 512           //最大符号数量
 
 typedef struct {
     char name[64];
@@ -204,7 +210,7 @@ typedef struct {
     Elf32_Xword size;
 } Symbol;
 
-static Symbol symbols[MAX_SYMBOLS];                                                 //符号表
+static Symbol symbols[MAX_SYMBOLS];            //符号表
 static int symbol_count = 0;
 
 //查找函数名
@@ -217,33 +223,36 @@ const char *find_function_name(uint32_t addr) {
     return NULL;
 }
 
+//Name:程序中定义的函数
+//Value:起始地址
+//Size:函数的大小.
 
-
-void parse_elf(const char *elf_file) {                                                      //解析ELF文件
+void parse_elf(const char *elf_file) {               //解析ELF文件，获得函数符号信息
     if (!elf_file) return;
     
+    //打开ELF文件
     FILE *fp = fopen(elf_file, "rb");
     if (!fp) {
         fprintf(stderr, "We can't open this ELF file : %s\n", elf_file);
         return;
     }
 
-    // 读取ELF头
-    Elf32_Ehdr ehdr;
+    //读取ELF头，验证文件格式和获取节头表信息
+    Elf32_Ehdr ehdr;//ELF头结构体，包含了文件类型、机器架构、入口点地址、节头表偏移等信息
     if (fread(&ehdr, sizeof(ehdr), 1, fp) != 1) {
         fprintf(stderr, "Failed to read ELF header...\n");
         fclose(fp);
         return;
     }
 
-    // 验证ELF魔数
+    //验证ELF魔数,即文件开头的4字节是否为0x7F 'E' 'L' 'F'，确认有效性
     if (memcmp(ehdr.e_ident, "\x7F" "ELF", 4) != 0) {
         fprintf(stderr, "Invalid ELF file: \n");
         fclose(fp);
         return;
     }
 
-    // 加载节头表
+    //加载节头表，节头表包含了每个节的信息，如名称、类型、地址、大小等，后续需要根据节头表找到符号表和字符串表
     Elf32_Shdr *shdrs = malloc(ehdr.e_shnum * sizeof(Elf32_Shdr));
     if (!shdrs) {
         fprintf(stderr, "Failed to allocate section header table memory...\n");
@@ -259,8 +268,8 @@ void parse_elf(const char *elf_file) {                                          
         return;
     }
 
-    // 获取节名称表
-    Elf32_Shdr *shstr_shdr = &shdrs[ehdr.e_shstrndx];
+    //获取节名称表，节名称表是一个特殊的节，包含了所有节的名称字符串，通过ehdr.e_shstrndx字段可以找到节名称表的节头信息，然后读取节名称表内容以便后续查找符号表和字符串表
+    Elf32_Shdr *shstr_shdr = &shdrs[ehdr.e_shstrndx];//节名称表的节头信息
     char *shstrtab = malloc(shstr_shdr->sh_size);
     if (!shstrtab) {
         fprintf(stderr, "Failed to allocate section name table memory...\n");
@@ -292,13 +301,13 @@ void parse_elf(const char *elf_file) {                                          
         }
     }
 
-    // 验证找到的关键表
+    //验证找到的关键表
     if (!symtab_shdr || !strtab_shdr) {
         fprintf(stderr, "No symbol or string table found...\n");
         goto cleanup;
     }
 
-    // 读取字符串表内容
+    //读取字符串表内容
     char *strtab = malloc(strtab_shdr->sh_size);
     if (!strtab) {
         fprintf(stderr, "Failed to allocate string table memory...\n");
@@ -312,7 +321,7 @@ void parse_elf(const char *elf_file) {                                          
         goto cleanup;
     }
 
-    // 读取符号表内容
+    //读取符号表内容，符号表是一个数组，每个元素是一个Elf32_Sym结构，包含了符号的名称索引、地址、大小、类型等信息，通过符号表和字符串表可以获取函数的名称和地址信息
     int sym_count = symtab_shdr->sh_size / sizeof(Elf32_Sym);
     Elf32_Sym *syms = malloc(symtab_shdr->sh_size);
     if (!syms) {
@@ -329,13 +338,13 @@ void parse_elf(const char *elf_file) {                                          
         goto cleanup;
     }
 
-    // 提取函数符号
+    //提取函数符号
     for (int i = 0; i < sym_count && symbol_count < MAX_SYMBOLS; i++) {
         unsigned char type = ELF32_ST_TYPE(syms[i].st_info);
         if (type == STT_FUNC && syms[i].st_value != 0) {
             const char *name = strtab + syms[i].st_name;
             
-            // 复制函数名
+            //复制函数名
             strncpy(symbols[symbol_count].name, name, sizeof(symbols[symbol_count].name) - 1);
             symbols[symbol_count].name[sizeof(symbols[symbol_count].name) - 1] = '\0';
             
@@ -351,7 +360,6 @@ void parse_elf(const char *elf_file) {                                          
         }
     }
     
-    // 清理资源
     free(strtab);
     free(syms);
 
@@ -363,10 +371,10 @@ cleanup:
 
 
 
-static int rec_depth = 1;  // 调用深度计数器
+static int rec_depth = 1;  //调用深度
 
 void display_call_func(word_t pc, word_t func_addr) {                                           //显示调用函数信息
-    // 获取调用者和被调用者名称
+    //调用者和被调用者名称
     const char *caller = find_function_name(pc);                                                        //获取调用者函数名
     const char *callee = find_function_name(func_addr);                                           //获取被调用者函数名
     
@@ -394,10 +402,13 @@ void display_ret_func(word_t pc) {                                              
     printf("ret  %s@0x%08x", 
            func_name ? func_name : "unknown", 
            pc);
-    
-    
-    IFDEF(CONFIG_FTRACE_RETVAL, 
-        printf(" [ret=0x%08x]", R(10));                         //R(10)通常用于存储函数返回值
-    );
+
+#ifdef CONFIG_FTRACE_RETVAL//启用返回值追踪时打印
+    word_t ret_val = 0;
+#if defined(CONFIG_ISA_riscv)
+    ret_val = cpu.gpr[10];   // a0
+#endif
+    printf(" [ret=" FMT_WORD "]", ret_val);
+#endif
     printf("\n");
 }

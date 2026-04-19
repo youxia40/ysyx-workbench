@@ -46,7 +46,7 @@ static char* rl_gets() {
 }
 
 static int cmd_c(char *args) {
-  cpu_exec(-1);                                           //切记：-1转换无符号整数的最大值！因此此命令非单步执行
+  cpu_exec(-1);         //切记：-1转换无符号整数的最大值！因此此命令非单步执行
   return 0;
 }
 
@@ -330,7 +330,9 @@ void sdb_mainloop() {        //nemu交互（sdb主循环）
       }
     }
 
-    if (i == NR_CMD) { printf("Unknown command '%s'\n", cmd); }
+    if (i == NR_CMD) { 
+      printf("Unknown command '%s'\n", cmd);
+    }
   }
 }
 

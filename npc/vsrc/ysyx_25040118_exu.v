@@ -23,13 +23,13 @@ module ysyx_25040118_exu (
     input is_csrrci,
     input is_mret,
     input is_ecall,
+    input [31:0] csr_rdata,
+    input [31:0] csr_mtvec,
+    input [31:0] csr_mepc,
 
     input is_auipc,
     input is_lui,
     input is_alu_imm,
-    input [31:0] csr_rdata,
-    input [31:0] csr_mtvec,
-    input [31:0] csr_mepc,
     input ebreak, //来自IDU的ebreak信号,用于触发DPI调用
     output reg [31:0] result,
     output reg [31:0] next_pc,
@@ -48,7 +48,7 @@ module ysyx_25040118_exu (
     import "DPI-C" function void npc_etrace_mret(input int unsigned from, input int unsigned to);
     `endif
 
-    //提前解码rd和rs1,后续用于识别call/ret模式
+    //解码rd和rs1,后续用于识别call/ret模式
     wire [4:0] rd = inst[11:7];
     wire [4:0] rs1 = inst[19:15];
     wire [31:0] csr_uimm = {27'b0, inst[19:15]};
@@ -59,7 +59,7 @@ module ysyx_25040118_exu (
     wire [31:0] jal_target = pc + imm;
     wire [31:0] jalr_target = (src1 + imm) & ~32'h1;
 
-    //下一条PC选择优先级:jal>jalr>branch>pc+4
+    
     always @(*) begin
         next_pc = pc + 4;
 
@@ -85,35 +85,6 @@ module ysyx_25040118_exu (
                 3'b111: next_pc = (src1 >= src2) ? (pc + imm) : (pc + 4); //bgeu
                 default: next_pc = pc + 4;
             endcase
-        end
-    end
-
-
-    //ftrace调用:
-    //jal且rd!=x0视为调用
-    //jalr且rd=x0,rs1=ra,imm=0视为返回
-    //其余jalr且rd!=x0视为调用
-    always @(*) begin
-        if (!stop) begin
-            if (is_jal) begin
-                if (rd != 5'd0) begin
-                    `ifndef SYNTHESIS
-                    npc_ftrace_log({32'b0, pc},{32'b0, jal_target},1);
-                    `endif
-                end
-            end
-            else if (is_jalr) begin
-                if (rd == 5'd0 && rs1 == 5'd1 && imm == 32'd0) begin
-                    `ifndef SYNTHESIS
-                    npc_ftrace_log({32'b0, pc},64'd0,0);
-                    `endif
-                end
-                else if (rd != 5'd0) begin
-                    `ifndef SYNTHESIS
-                    npc_ftrace_log({32'b0, pc},{32'b0, jalr_target},1);
-                    `endif
-                end
-            end
         end
     end
 
@@ -202,9 +173,34 @@ module ysyx_25040118_exu (
         end
     end
 
+    //ftrace调用:
+    //jal且rd!=x0视为调用
+    //jalr且rd=x0,rs1=ra,imm=0视为返回
+    //其余jalr且rd!=x0视为调用
     //ebreak在时钟上升沿提交到DPI,由a0值区分GOODTRAP或BADTRAP
     always @(posedge clk) begin
         if (!rst && !stop) begin
+            if (is_jal) begin
+                if (rd != 5'd0) begin
+                    `ifndef SYNTHESIS
+                    npc_ftrace_log({32'b0, pc},{32'b0, jal_target},1);
+                    `endif
+                end
+            end
+            else if (is_jalr) begin
+                //ret伪指令: jalr x0, x1, 0
+                if (rd == 5'd0 && rs1 == 5'd1 && imm == 32'd0) begin
+                    `ifndef SYNTHESIS
+                    npc_ftrace_log({32'b0, pc},64'd0,0);
+                    `endif
+                end
+                else if (rd != 5'd0) begin
+                    `ifndef SYNTHESIS
+                    npc_ftrace_log({32'b0, pc},{32'b0, jalr_target},1);
+                    `endif
+                end
+            end
+
             if (is_ecall) begin
                 `ifndef SYNTHESIS
                 npc_etrace_trap(32'h0000000b, pc, csr_mtvec);

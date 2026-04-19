@@ -21,6 +21,8 @@
 #include <generated/autoconf.h>                       //自动生成的配置头文件, 包含了NEMU的配置信息
 
 extern void etrace_mret(vaddr_t from, vaddr_t to);
+extern void display_call_func(word_t pc, word_t func_addr);
+extern void display_ret_func(word_t pc);
 
 #define R(i) gpr(i)
 #define Mr vaddr_read                       //vaddr_read是一个函数, 用于从内存中读取数据
@@ -143,20 +145,25 @@ static int decode_exec(Decode *s) {                                       //译�
   INSTPAT("??????? ????? ????? 110 ????? 11000 11", bltu   , B, if (src1 < src2) s->dnpc = s->pc + imm);        //小于则跳转
   INSTPAT("??????? ????? ????? 111 ????? 11000 11", bgeu   , B, if (src1 >= src2) s->dnpc = s->pc + imm);        //大于等于则跳转
   
+
   //跳转并链接
   INSTPAT("??????? ????? ????? ??? ????? 11011 11", jal    , J,
     R(rd) = s->pc + 4, s->dnpc = s->pc + imm;
     IFDEF(CONFIG_FTRACE, if(rd == 1){
-    display_call_func(s->pc, s->dnpc);      //调用函数
+    display_call_func(s->pc, s->dnpc);
     }));//跳转并链接
   INSTPAT("??????? ????? ????? 000 ????? 11001 11", jalr   , I,
     R(rd) = s->pc + 4, s->dnpc = (src1 + imm) & ~1;
     IFDEF(CONFIG_FTRACE, if(rd == 1){
-    display_call_func(s->pc, s->dnpc);      //调用函数
+    display_call_func(s->pc, s->dnpc);
     }
-    else if(rd == 0 && src1 == R(1)){
-    display_ret_func(s->pc);            //返回函数
+    else if(rd == 0 && zimm == 1 && imm == 0){
+    //按寄存器号识别ret伪指令: jalr x0, x1, 0
+    //zimm复用了inst[19:15]位域, 对jalr即rs1寄存器编号
+
+    display_ret_func(s->pc);
     }));//寄存器跳转并链接
+
 
   //同步
   INSTPAT("0000??? ????? 00000 000 00000 00011 11", fence  , I, );            //内存屏障，要求所有​​之前的内存操作​​在​​后续内存操作​​之前完成，避免编译器或 CPU 对内存操作进行乱序优化，保证多核/多线程环境下的内存一致性。
@@ -209,7 +216,7 @@ static int decode_exec(Decode *s) {                                       //译�
   }); //立即数清位CSR
 
   //环境
-  INSTPAT("0011000 00010 00000 000 00000 11100 11", mret   , N, etrace_mret(s->pc, CSRs[CSR_MEPC]); s->dnpc = CSRs[CSR_MEPC]);//从机器模式返回，跳转到mepc寄存器中保存的地址继续执行
+  INSTPAT("0011000 00010 00000 000 00000 11100 11", mret   , N, etrace_mret(s->pc, CSRs[CSR_MEPC]); s->dnpc = CSRs[CSR_MEPC]);//从机器模式返回，跳转到mepc寄存器中保存的地址继续执行（实际为ret的地址）
   INSTPAT("0000000 00000 00000 000 00000 11100 11", ecall  , N, s->dnpc = isa_raise_intr(11, s->pc));//随后触发编号为11的异常，dnspc被设置为异常处理程序的入口地址
   INSTPAT("0000000 00001 00000 000 00000 11100 11", ebreak , N, NEMUTRAP(s->pc, R(10)));   //R(10) is $a0环境断点
   

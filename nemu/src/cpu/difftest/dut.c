@@ -66,7 +66,7 @@ void init_difftest(char *ref_so_file, long img_size, int port) {
   assert(ref_so_file != NULL);
 
   void *handle;
-  handle = dlopen(ref_so_file, RTLD_LAZY);
+  handle = dlopen(ref_so_file, RTLD_LAZY);//动态加载差异测试的so文件
   assert(handle);
 
   ref_difftest_memcpy = dlsym(handle, "difftest_memcpy");
@@ -102,7 +102,7 @@ static void checkregs(CPU_state *ref, vaddr_t pc) {
   }
 }
 
-void difftest_step(vaddr_t pc, vaddr_t npc) {
+void difftest_step(vaddr_t pc, vaddr_t npc) {//差异测试的单步执行函数，pc是当前指令的地址，npc是下一条指令的地址
   CPU_state ref_r;
 
   if (skip_dut_nr_inst > 0) {

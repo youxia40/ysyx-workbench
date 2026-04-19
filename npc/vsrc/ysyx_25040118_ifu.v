@@ -17,7 +17,7 @@ module ysyx_25040118_ifu (
 
     reg [31:0] pc_reg;//当前取指PC寄存器
     wire [31:0] phys_addr  = pc_reg - VIRT_MEM_BASE;//虚拟地址映射到物理偏移
-    wire valid_addr = (phys_addr < PHYS_MEM_SIZE);//地址合法性检查
+    wire valid_addr = (phys_addr < PHYS_MEM_SIZE);//确保访问在物理内存范围内
 
     //PC时序更新:复位回到基址,运行态跟随next_pc
     always @(posedge clk) begin
@@ -34,7 +34,7 @@ module ysyx_25040118_ifu (
     //地址合法时通过DPI接口读取内存,否则输出NOP指令(ADDI x0,x0,0)
     `ifndef SYNTHESIS
     //32'h00000013:将x0的值+0，zai写回x0。
-    assign inst = valid_addr ? npc_pmem_read(phys_addr) : 32'h00000013;     //NOP
+    assign inst = valid_addr ? npc_pmem_read(phys_addr) : 32'h00000013;     //NOP（ADDI x0, x0, 0）
     `else
     assign inst = valid_addr ? 'h00000000 : 32'h00000013;     //NOP
     `endif

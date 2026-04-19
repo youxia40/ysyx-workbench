@@ -7,7 +7,7 @@
 #define SYNC_ADDR (VGACTL_ADDR + 4)//刷新寄存器
 
 void __am_gpu_init() {
-  uint32_t v = inl(VGACTL_ADDR);
+  uint32_t v = inl(VGACTL_ADDR);//高位存宽，低位存高
   int w = v >> 16;
   int h = v & 0xffff;
 
@@ -20,7 +20,7 @@ void __am_gpu_init() {
 
   uint32_t *fb = (uint32_t *)(uintptr_t)FB_ADDR;
   for (int i = 0; i < w * h; i++) {
-    fb[i] = 0;   //清屏(原来fb[i]=i会出花屏色带）
+    fb[i] = 0;   //清屏
   }
 
   outl(SYNC_ADDR, 1);

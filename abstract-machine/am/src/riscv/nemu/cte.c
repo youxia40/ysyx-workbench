@@ -7,13 +7,7 @@
 #define MCAUSE_ECALL_MMODE 11
 #define MCAUSE_IRQ_TIMER 0x80000007u
 #define MCAUSE_IRQ_IODEV 0x8000000bu
-/*
-struct Context {//处理器上下文结构体
-  uintptr_t gpr[NR_REGS];
-  uintptr_t mcause, mstatus, mepc;
-  void *pdir;//地址空间根指针
-};
-*/
+
 static Context* (*user_handler)(Event, Context*) = NULL;//事件处理函数指针，AM在发生异常时会调用它来处理事件
 /*
 mcause值 → 事件一览（riscv32）
@@ -42,19 +36,17 @@ mcause十进制（含bit31）	mcause十六进制	事件（Cause）
 2147483659	          0x8000000b	   Machine external interrupt（机器外部中断 MEIP）
 */
 
-Context* __am_irq_handle(Context *c) {//异常处理函数（事件分发），AM在发生异常时会调用它来处理事件，参数c是当前的处理器上下文
-//在/home/pz40/ysyx-workbench/abstract-machine/am/src/riscv/nemu/trap.S调用
-//__am_asm_trap函数负责保存现场并调用__am_irq_handle处理事件
+Context* __am_irq_handle(Context *c) {//异常处理函数（事件分发)
 
-  if (user_handler) {//事件处理函数指针不为空
-    Event ev = {//初始化事件结构体，默认事件类型为EVENT_NULL
+  if (user_handler) {//事件处理函数指针
+    Event ev = {//事件结构体，默认事件类型为EVENT_NULL
       .event = EVENT_NULL,
       .cause = c->mcause,
-      .ref = c->mepc,
+      .ref = c->mepc,//ref：事件发生时的程序计数器值，通常用于异常返回时恢复到正确的指令地址
       .msg = "unknown trap",
-    };
+    };//
 
-    switch (c->mcause) {//根据mcause寄存器的值来判断异常类型，并设置事件类型
+    switch (c->mcause) {
       case MCAUSE_IRQ_TIMER:
         ev.event = EVENT_IRQ_TIMER;
         ev.msg = "machine timer interrupt";
@@ -73,7 +65,7 @@ Context* __am_irq_handle(Context *c) {//异常处理函数（事件分发），A
           ev.event = EVENT_YIELD;
           ev.msg = "yield ecall";
         } else {
-          ev.event = EVENT_SYSCALL;
+          ev.event = EVENT_SYSCALL;//正常系统调用事件
           ev.msg = "syscall ecall";
         }
         break;
@@ -94,11 +86,11 @@ Context* __am_irq_handle(Context *c) {//异常处理函数（事件分发），A
 
 extern void __am_asm_trap(void);//异常入口函数，定义在trap.S中，负责保存现场并调用__am_irq_handle处理事件
 
-bool cte_init(Context*(*handler)(Event, Context*)) {//CTE初始化函数，设置异常入口和事件处理函数
+bool cte_init(Context*(*handler)(Event, Context*)) {
   // initialize exception entry初始化异常条目
   asm volatile("csrw mtvec, %0" : : "r"(__am_asm_trap));//把异常入口地址写入mtvec寄存器，确保发生异常时CPU会跳转到__am_asm_trap函数
 
-  // register event handler注册事件处理回调函数，AM在发生事件时会调用这个函数来处理事件
+  // register event handler注册事件处理回调函数，AM在发生事件时会调用这个函数来处理事件，由测试程序提供
   user_handler = handler;
 
   return true;
@@ -106,15 +98,15 @@ bool cte_init(Context*(*handler)(Event, Context*)) {//CTE初始化函数，设�
 
 Context *kcontext(Area kstack, void (*entry)(void *), void *arg) {
   //创建内核线程的上下文，kstack是线程的内核栈区域范围，entry是线程的入口函数，arg是传递给入口函数的参数，是创建初始Context的接口
-  //用来创建一个新的上下文，初始状态是当这个上下文被切换到时会执行entry函数，并且传入arg作为参数，指定了这个上下文使用的内核栈范围。
+  //用来创建一个新的上下文，初始状态是当这个上下文被切换时会执行entry函数，并且传入arg作为参数，指定了这个上下文使用的内核栈范围。
 
-  Context *c = (Context *)((uintptr_t)kstack.end - sizeof(Context));//在内核栈的顶部为新的上下文结构预留空间，确保上下文结构位于栈顶，符合调用约定
+  Context *c = (Context *)((uintptr_t)kstack.end - sizeof(Context));//在内核栈的顶部为新的上下文结构预留空间，确保上下文结构位于栈顶
   *c = (Context){0};
 
   uintptr_t mstatus = 0;
   asm volatile("csrr %0, mstatus" : "=r"(mstatus));
-  //从mstatus寄存器读取当前的处理器状态，存储在变量mstatus中，这样我们就能在新上下文中继承当前的处理器状态，例如中断使能等
-
+  //从mstatus寄存器读取当前的处理器状态，初始化mstatus寄存器的值
+  
   c->mstatus = mstatus;
   c->mepc = (uintptr_t)entry;
   c->pdir = NULL;
@@ -128,7 +120,7 @@ void yield() {//触发自陷事件的函数，调用后会触发一个编号为E
   asm volatile("li a5, -1; ecall");
 #else
   asm volatile("li a7, -1; ecall");
-  //在RISC-V中，a7寄存器通常用于传递系统调用号，这里把它设置为-1表示触发一个特殊的自陷事件，操作系统调度器会检测到这个事件并进行相应的处理，例如切换到另一个线程或进程。
+  //在RISC-V中，a7寄存器通常用于传递系统调用号，设置为-1表示触发一个特殊的自陷事件
 #endif
 }
 

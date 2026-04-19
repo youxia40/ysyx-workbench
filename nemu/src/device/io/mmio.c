@@ -37,6 +37,7 @@ static void report_mmio_overlap(const char *name1, paddr_t l1, paddr_t r1,
 
 /* device interface */
 void add_mmio_map(const char *name, paddr_t addr, void *space, uint32_t len, io_callback_t callback) {
+  //检查MMIO映射是否与物理内存或已有的MMIO映射重叠
   assert(nr_map < NR_MAP);
   paddr_t left = addr, right = addr + len - 1;
   if (in_pmem(left) || in_pmem(right)) {

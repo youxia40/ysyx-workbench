@@ -31,5 +31,5 @@ int main(int argc, char *argv[]) {
   /* Start engine. */
   engine_start();              //nemu/src/engine/interpreter/init.c,转入sdb_mainloop();
 
-  return is_exit_status_bad();                                //位于nemu/src/utils/state.c
+  return is_exit_status_bad();                    //位于nemu/src/utils/state.c
 }

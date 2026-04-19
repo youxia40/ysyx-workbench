@@ -13,7 +13,7 @@
 #define MMAP_WRITE 0x00000002 // can write
 
 // Memory area for [@start, @end)
-typedef struct {//内存区域结构体，包含起始地址和结束地址成员，表示一个半开区间的内存范围
+typedef struct {
   void *start, *end;
 } Area;
 
@@ -31,8 +31,9 @@ typedef struct {//统一描述“为什么切换执行流”
     EVENT_IRQ_TIMER, //定时器中断事件，表示定时器设备触发了中断，操作系统需要进行相应的处理
     EVENT_IRQ_IODEV,//设备中断事件，表示其他I/O设备触发了中断，操作系统需要进行相应的处理
     
-  } event;//事件类型枚举，包含空事件、调度、系统调用、页错误、一般错误和设备中断等类型
+  } event;//事件类型枚举
 
+  
   //PA暂不主要用
   uintptr_t cause, ref;//事件相关的原因码和指针，具体含义根据事件类型而定，例如页错误可能包含访问地址，设备中断可能包含设备ID等
   const char *msg;//事件相关消息字符串，用于错误描述

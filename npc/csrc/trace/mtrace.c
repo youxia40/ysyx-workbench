@@ -1,13 +1,9 @@
-#include "mtrace.h"
+#include "trace/mtrace.h"
 
 #if NPC_ENABLE_MTRACE
 
-
-extern NPCContext npc_ctx;
-
-
 //已打印的条数
-static uint64_t mtrace_lines  = 0;
+static uint64_t mtrace_lines = 0;
 
 //是否已经静音
 static bool mtrace_silent = false;
@@ -37,9 +33,13 @@ void mtrace_log(int is_read, uint32_t addr, int len, uint32_t data) {
 
   const char* op = is_read ? "READ" : "WRITE";
 
-
-  //打印当前pc读写类型地址长度数据
-  printf("[mtrace] pc=0x%08x %sADDR=0x%08x LEN=%d DATA=0x%08x\n",npc_ctx.pc, op, addr, len, data);
+  if (is_read) {
+    //内存读追踪（直接打印）
+    printf("[mtrace] %s  0x%08x, len=%d\n", op, addr, len);
+  } else {
+    //内存写追踪（直接打印）
+    printf("[mtrace] %s 0x%08x, len=%d, data=0x%08x\n", op, addr, len, data);
+  }
 
   //计数在最终打印后递增
   mtrace_lines++;
@@ -47,7 +47,7 @@ void mtrace_log(int is_read, uint32_t addr, int len, uint32_t data) {
 
 #else
 
-//关闭mtrace时的空实现
+//禁用时生成空函数
 void mtrace_log(int is_read, uint32_t addr, int len, uint32_t data) { (void)is_read; (void)addr; (void)len; (void)data; }
 
 

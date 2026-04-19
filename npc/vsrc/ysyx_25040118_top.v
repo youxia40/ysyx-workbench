@@ -72,6 +72,7 @@ module ysyx_25040118_top (
         .stop      (stop),
         .inst      (ifu_inst),
         .pc        (ifu_pc),
+
         .rd        (idu_rd),
         .rs1       (idu_rs1),
         .rs2       (idu_rs2),
@@ -164,6 +165,7 @@ module ysyx_25040118_top (
         .trap_we  (exu_trap_we),
         .trap_epc (exu_trap_epc),
         .trap_cause(exu_trap_cause),
+        
         .csr_rdata(csr_rdata),
         .csr_mtvec(csr_mtvec),
         .csr_mepc (csr_mepc)
@@ -180,6 +182,7 @@ module ysyx_25040118_top (
         .imm      (idu_imm),
         .is_load  (idu_is_load),
         .is_store (idu_is_store),
+
         .load_data(lsu_load_data)
     );
 

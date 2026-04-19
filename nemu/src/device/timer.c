@@ -30,15 +30,15 @@ static void rtc_io_handler(uint32_t offset, int len, bool is_write) {//实时时
 
 #ifndef CONFIG_TARGET_AM
 static void timer_intr() {//定时器中断处理函数
-  if (nemu_state.state == NEMU_RUNNING) {//仅在NEMU_RUNNING状态下触发中断
-    extern void dev_raise_intr();//声明触发中断函数
+  if (nemu_state.state == NEMU_RUNNING) {
+    extern void dev_raise_intr();//触发中断函数
     dev_raise_intr();//触发中断
   }
 }
 #endif
 
 void init_timer() {//初始化定时器设备，映射到地址空间，并注册中断处理函数
-  rtc_port_base = (uint32_t *)new_space(8);
+  rtc_port_base = (uint32_t *)new_space(8);//分配8字节的空间存储当前时间的低32位和高32位
 #ifdef CONFIG_HAS_PORT_IO
   add_pio_map ("rtc", CONFIG_RTC_PORT, rtc_port_base, 8, rtc_io_handler);
 #else

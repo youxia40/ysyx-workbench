@@ -1,4 +1,4 @@
-#include <am.h>//TRM平台入口实现,负责把AM程序接到NPC设备模型
+#include <am.h>
 #include <klib-macros.h>
 #include <klib.h>
 #include <npc.h>
@@ -8,7 +8,7 @@
   工作方式上, TRM不断地重复以下过程: 从PC指示的存储器位置取出指令, 执行指令, 然后更新PC.
 */
 extern char _heap_start;//链接脚本提供的堆起点符号
-int main(const char *args);//用户程序入口(AM约定签名)
+int main(const char *args);
 
 extern char _pmem_start;//链接脚本提供的程序装载基址符号
 #define PMEM_SIZE (128 * 1024 * 1024)
@@ -34,8 +34,8 @@ void halt(int code) {
   }
 }
 
-void _trm_init() {          //AM约定的“启动入口”(通常由start.S调用它)
-  //通过内联汇编读出mvendorid、marchid的值, 然后通过printf()输出它们.
+void _trm_init() {
+  //通过内联汇编读出mvendorid、marchid的值输出
   uint32_t mvendorid, marchid;
   asm volatile("csrr %0, mvendorid" : "=r"(mvendorid));
   asm volatile("csrr %0, marchid" : "=r"(marchid));

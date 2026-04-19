@@ -11,12 +11,8 @@ void npc_load_elf(NPCContext* ctx, const char* elf_path) {//加载ELF文件到NP
     assert(ctx != NULL);
     assert(elf_path != NULL);
 #endif
-
-
     //把ELF路径保存到ctx里，方便ftrace_init使用
     if (elf_path) {
-
-        
         strncpy(ctx->elf_path, elf_path, sizeof(ctx->elf_path) - 1);//复制路径字符串，确保结尾
         ctx->elf_path[sizeof(ctx->elf_path) - 1] = '\0';
     } else {
@@ -56,7 +52,7 @@ void npc_load_elf(NPCContext* ctx, const char* elf_path) {//加载ELF文件到NP
 
     //主循环会把PC初始化到此处
     ctx->entry = ehdr->e_entry;
-    //这只记录入口，不立即改pc；真正生效由主循环在复位后提交路径驱动
+    //仅只记录入口，不立即改pc；真正生效由主循环在复位后提交路径驱动
 
 
     //处理PT_LOAD类型，把文件中对应段的数据写入内存模型，并清零BSS段
@@ -97,7 +93,7 @@ void npc_load_image(NPCContext* ctx, const char* image_path) {
     assert(ctx != NULL);
     assert(image_path != NULL);
 #endif
-    int fd = open(image_path, O_RDONLY);//尝试打开文件以读取前4字节识别格式
+    int fd = open(image_path, O_RDONLY);//打开文件以读取前4字节识别格式
     if (fd < 0) {
         perror("Failed to open image file");
         exit(1);
@@ -115,9 +111,6 @@ void npc_load_image(NPCContext* ctx, const char* image_path) {
     bool is_elf = (nread == 4 && magic[0] == 0x7f && magic[1] == 'E' && magic[2] == 'L' && magic[3] == 'F');
     //ELF文件以0x7f 'E' 'L' 'F'开头，如果前4字节匹配则视为ELF格式
     //在ELF头数据结构中，e_ident是16字节数组，最开始4字节是魔数，第一字节为0x7F,后三字节为“E”“L”“F”，其后12字节信息主要包含标志信息，如32/64位、字节序等；
-    //我NPC通过前4字节识别是否为ELF格式（-----见绿书P188-----）
-    
-
 
     if (is_elf) {//如果是ELF格式
         //命中ELF后直接走段装载流程，BIN路径不再执行

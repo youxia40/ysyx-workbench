@@ -54,21 +54,21 @@ void init_mem() {
 extern void mtrace_read(paddr_t addr, int len);                      //读取物理内存时的跟踪函数
 extern void mtrace_write(paddr_t addr, int len, word_t data);       //写入物理内存时的跟踪函数
 
-word_t paddr_read(paddr_t addr, int len) {                             //读取物理内存
-  if (likely(in_pmem(addr))) {                                   //如果地址在物理内存范围内，则调用pmem_read函数读取物理内存
+word_t paddr_read(paddr_t addr, int len) {
+  if (likely(in_pmem(addr))) {                                   //物理内存范围内，则调用pmem_read函数读取物理内存
 #ifdef CONFIG_MTRACE
     mtrace_read(addr, len);
 #endif
     return pmem_read(addr, len);
   }
 
-  IFDEF(CONFIG_DEVICE, return mmio_read(addr, len));                    //如果是设备内存映射，则调用mmio_read函数读取设备内存
+  IFDEF(CONFIG_DEVICE, return mmio_read(addr, len));
   out_of_bound(addr);                                                //如果地址不在物理内存范围内，则触发错误
   return 0;
 }
 
-void paddr_write(paddr_t addr, int len, word_t data) {              //写入物理内存
-  if (likely(in_pmem(addr))) {                                  //如果地址在物理内存范围内，则调用pmem_write函数写入物理内存
+void paddr_write(paddr_t addr, int len, word_t data) {
+  if (likely(in_pmem(addr))) {                                  //地址在物理内存范围内，调用pmem_write函数写入物理内存
 #ifdef CONFIG_MTRACE
     mtrace_write(addr, len, data);
 #endif
@@ -76,6 +76,6 @@ void paddr_write(paddr_t addr, int len, word_t data) {              //写入物�
     return;
   }
 
-  IFDEF(CONFIG_DEVICE, mmio_write(addr, len, data); return);
+  IFDEF(CONFIG_DEVICE, mmio_write(addr, len, data); return;)
   out_of_bound(addr);
 }

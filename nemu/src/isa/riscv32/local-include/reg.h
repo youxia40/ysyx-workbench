@@ -27,7 +27,7 @@ static inline int check_reg_idx(int idx) {
 
 enum {//CSR寄存器编号（都属于M级，地址高两位为11）
   CSR_MSTATUS = 0x300,
-  CSR_MTVEC = 0x305,//机器模式下存储中断处理程序的基地址和模式
+  CSR_MTVEC = 0x305,//用于存储异常入口地址和模式的CSR寄存器，mtvec的最低两位表示模式，剩余位表示基地址
   CSR_MEPC = 0x341,
   CSR_MCAUSE  = 0x342,
   CSR_MVENDORID = 0xF11,

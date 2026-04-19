@@ -3,8 +3,10 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#if !defined(__ISA_NATIVE__) || defined(__NATIVE_USE_KLIB__)
+//ARCH/ISA等宏是由AM总Makefile自动生成，在Makefile（35）从ARCH拆出ISA和PLATFORM，在Makefile（87）到Makefile（89）统一加到CFLAGS
 
+#if !defined(__ISA_NATIVE__) || defined(__NATIVE_USE_KLIB__)
+//非native或者要求native使用klib时才会编译以下代码，否则会链接到glibc的实现
 size_t strlen(const char *s) {
     if (!s) return 0;
     const char *end = s;
@@ -14,7 +16,8 @@ size_t strlen(const char *s) {
     return end - s;
 }
 
-#if (!defined(__RTTHREAD__) && !defined(__KLIB_DISABLE_STRNLEN__) && !defined(__ARCH_RISCV32_NEMU) && !defined(__ARCH_RISCV32E_NPC)) || defined(__RTTHREAD_USE_KLIB__)
+#if !defined(__RTTHREAD__)
+//RTT宏在见其Makefile第九行定义
 size_t strnlen(const char *s, size_t maxlen) {
     if (!s) return 0;
     size_t len = 0;

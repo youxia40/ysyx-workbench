@@ -55,7 +55,7 @@ static void key_enqueue(uint32_t am_scancode) {
   Assert(key_r != key_f, "key queue overflow!");
 }
 
-static uint32_t key_dequeue() {
+static uint32_t key_dequeue() {//从键盘事件队列中取出一个按键事件，如果队列为空则返回NEMU_KEY_NONE
   uint32_t key = NEMU_KEY_NONE;
   if (key_f != key_r) {
     key = key_queue[key_f];
@@ -67,7 +67,7 @@ static uint32_t key_dequeue() {
 void send_key(uint8_t scancode, bool is_keydown) {//当有按键事件发生时，send_key函数会被调用，参数scancode表示按键的扫描码，is_keydown表示按键是按下还是释放
   if (nemu_state.state == NEMU_RUNNING && keymap[scancode] != NEMU_KEY_NONE) {
 
-    //将扫描码转换为NEMU的按键码，并根据按键状态设置KEYDOWN_MASK,故最高位为1表示按键按下，其余位表示按键的扫描码；最高位为0表示按键释放，其余位表示按键的扫描码
+    //将扫描码转换为NEMU的按键码，并根据按键状态设置KEYDOWN_MASK
     uint32_t am_scancode = keymap[scancode] | (is_keydown ? KEYDOWN_MASK : 0);
     
     key_enqueue(am_scancode);//将按键事件加入键盘事件队列
@@ -76,7 +76,7 @@ void send_key(uint8_t scancode, bool is_keydown) {//当有按键事件发生时�
 #else // !CONFIG_TARGET_AM
 #define NEMU_KEY_NONE 0
 
-static uint32_t key_dequeue() {
+static uint32_t key_dequeue() {//从键盘事件队列中取出一个按键事件，如果队列为空则返回NEMU_KEY_NONE
   AM_INPUT_KEYBRD_T ev = io_read(AM_INPUT_KEYBRD);
   uint32_t am_scancode = ev.keycode | (ev.keydown ? KEYDOWN_MASK : 0);
   return am_scancode;

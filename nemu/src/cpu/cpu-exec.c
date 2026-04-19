@@ -52,7 +52,6 @@ static void exec_once(Decode *s, vaddr_t pc) {                         //执行�
   s->pc = pc;
   s->snpc = pc;
   isa_exec_once(s);                //执行单条指令，位于/home/pz40/ysyx-workbench/nemu/src/isa/riscv32/inst.c
-  cpu.pc = s->dnpc;           //设置下一条指令的pc
 #ifdef CONFIG_ITRACE
   char *p = s->logbuf;
   p += snprintf(p, sizeof(s->logbuf), FMT_WORD ":", s->pc);
@@ -117,7 +116,7 @@ static void statistic() {           //统计信息
   else Log("Finish running in less than 1 us and can not calculate the simulation frequency");
 }
 
-void assert_fail_msg() {                                        //断言失败时的处理函数
+void assert_fail_msg() {  //断言失败时的处理函数,具体调用位于nemu/include/debug.h中
   isa_reg_display();                                            //显示寄存器状态
   IFDEF(CONFIG_IRINGBUF,itrace_display_inst());                      //显示指令环形缓冲区内容
   statistic();                                                    //统计信息
@@ -136,7 +135,6 @@ void cpu_exec(uint64_t n) {                         //模拟cpu的执行
   }
 
   uint64_t timer_start = get_time();
-
     
   execute(n);       //执行n条指令                  
 
@@ -153,6 +151,7 @@ void cpu_exec(uint64_t n) {                         //模拟cpu的执行
            (nemu_state.halt_ret == 0 ? ANSI_FMT("HIT GOOD TRAP", ANSI_FG_GREEN) :
             ANSI_FMT("HIT BAD TRAP", ANSI_FG_RED))),
           nemu_state.halt_pc);
+          itrace_display_inst();
       // fall through
     case NEMU_QUIT: statistic();
   }

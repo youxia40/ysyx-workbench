@@ -30,7 +30,7 @@ f(30) f(31)
 
 #define PUSH(n) STORE concat(x, n), (n * XLEN)(sp);
 /*PUSH(n)把各个xN存到sp+n*XLEN，所以上下文起始区域天然就是一整段连续的通用寄存器*/
-/*故/home/pz40/ysyx-workbench/abstract-machine/am/include/arch/riscv.h的结构体中gpr优先*/
+/*故riscv.h的结构体中gpr优先*/
 
 #define POP(n)  LOAD  concat(x, n), (n * XLEN)(sp);
 
@@ -48,13 +48,14 @@ f(30) f(31)
 __am_asm_trap:
   addi sp, sp, -CONTEXT_SIZE
 
+  /*写入gpr寄存器*/
   MAP(REGS, PUSH)
 
-
-  /*把“陷入前的原始sp”写到gpr[2]*/
+  /*单独把“陷入前的原始sp”写到gpr[2]*/
   addi t0, sp, CONTEXT_SIZE
   STORE t0, OFFSET_SP(sp)
 
+  /*读CSR并写入上下文*/
   csrr t0, mcause
   csrr t1, mstatus
   csrr t2, mepc
@@ -72,8 +73,7 @@ __am_asm_trap:
   csrw mstatus, t1
 
 
-
-  /*把这帧地址当Context*传给C*/
+  /*把当前Context*传给C处理*/
   mv a0, sp
   /*先保存现场并把sp即（Context*）放到a0*/
   call __am_irq_handle

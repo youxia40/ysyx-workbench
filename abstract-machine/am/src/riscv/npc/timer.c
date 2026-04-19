@@ -11,7 +11,7 @@ void __am_timer_uptime(AM_TIMER_UPTIME_T *uptime) {
 }
 
 void __am_timer_rtc(AM_TIMER_RTC_T *rtc) {
-  rtc->second = 0;//与NEMU实现保持一致:当前不提供完整日历
+  rtc->second = 0;
   rtc->minute = 0;
   rtc->hour   = 0;
   rtc->day    = 0;

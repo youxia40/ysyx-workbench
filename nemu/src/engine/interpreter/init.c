@@ -17,11 +17,11 @@
 
 void sdb_mainloop();
 
-void engine_start() {
+void engine_start() {//用于启动引擎
 #ifdef CONFIG_TARGET_AM
   cpu_exec(-1);
 #else
   /* Receive commands from user. */
-  sdb_mainloop();                                               //位于sdb.c
+  sdb_mainloop();               //位于sdb.c
 #endif
 }

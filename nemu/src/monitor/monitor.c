@@ -42,12 +42,12 @@ static void welcome() {
 
 void sdb_set_batch_mode();
 
-static char *log_file = NULL;
-static char *diff_so_file = NULL;
-static char *img_file = NULL;
+static char *log_file = NULL;//日志文件路径
+static char *diff_so_file = NULL;//差异测试的so文件路径
+static char *img_file = NULL;//镜像文件路径
 static int difftest_port = 1234;
 
-static long load_img() {                                                          //加载镜像文件，镜像文件是一个二进制文件，包含了程序的代码和数据
+static long load_img() {       //加载镜像文件，镜像文件是一个二进制文件，包含了程序的代码和数据
   if (img_file == NULL) {
     Log("No image is given. Use the default build-in image.");
     return 4096; // built-in image size
@@ -62,7 +62,7 @@ static long load_img() {                                                        
   Log("The image is %s, size = %ld", img_file, size);
 
   fseek(fp, 0, SEEK_SET);
-  int ret = fread(guest_to_host(RESET_VECTOR), size, 1, fp);                      //将镜像文件加载到内存中，RESET_VECTOR是程序的入口地址
+  int ret = fread(guest_to_host(RESET_VECTOR), size, 1, fp);//将镜像文件加载到内存中，RESET_VECTOR是程序的入口地址
   assert(ret == 1);
 
   fclose(fp);
@@ -75,7 +75,7 @@ void parse_elf(const char *elf_file);                            //声明解析e
 
 
 static int parse_args(int argc, char *argv[]) {                     //解析命令行参数
-  const struct option table[] = {
+  const struct option table[] = {//命令行参数选项
     {"batch"    , no_argument      , NULL, 'b'},                    //设置批处理模式
     {"log"      , required_argument, NULL, 'l'},                    //设置日志文件
     {"diff"     , required_argument, NULL, 'd'},                    //设置差异测试的so文件
@@ -113,7 +113,7 @@ void init_monitor(int argc, char *argv[]) {                                     
   /* Perform some global initialization. */
 
   /* Parse arguments. */
-  parse_args(argc, argv);                                     //解析命令行参数，位于monitor.c
+  parse_args(argc, argv);        //解析命令行参数，位于monitor.c
 
   /* Parse the ELF file if provided. */
   if (elf_file) {                                                         //用于解析ELF文件
@@ -138,7 +138,7 @@ void init_monitor(int argc, char *argv[]) {                                     
   init_isa();                   //初始化ISA                     
 
   /* Load the image to memory. This will overwrite the built-in image. */
-  long img_size = load_img();               //指定加载镜像文件，位于monitor.c
+  long img_size = load_img();
 
   /* Initialize differential testing. */
   init_difftest(diff_so_file, img_size, difftest_port);

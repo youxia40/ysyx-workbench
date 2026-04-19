@@ -1,4 +1,3 @@
-# NPC Makefile
 TOPNAME=ysyx_25040118_top
 BUILD_DIR=./build
 OBJ_DIR=$(BUILD_DIR)/obj_dir
@@ -17,7 +16,6 @@ PROJECT_HOME=$(abspath .)
 INCLUDE_DIR=$(PROJECT_HOME)/include
 VSRC_DIR=$(PROJECT_HOME)/vsrc
 CSRC_DIR=$(PROJECT_HOME)/csrc
-HSRCS = $(shell find $(INCLUDE_DIR) -maxdepth 1 -name '*.h')
 
 
 LLVM_PREFIX?=$(shell llvm-config --prefix 2>/dev/null || echo /usr/lib/llvm-14)
@@ -26,6 +24,7 @@ LLVM_LIBDIR=$(LLVM_PREFIX)/lib
 LLVM_VERSION=$(shell llvm-config --version 2>/dev/null || echo 14)
 
 LLVM_LDFLAGS=$(shell llvm-config --ldflags --libs core support irreader bitreader bitwriter)
+#使用llvm-config工具获取链接LLVM核心库、支持库、IR读取器库、位读取器库和位写入器库所需的链接标志
 ifeq ($(LLVM_LDFLAGS),)
 LLVM_LDFLAGS=-L$(LLVM_LIBDIR) -lLLVMCore -lLLVMSupport -lLLVMBitReader -lLLVMBitWriter -lLLVMIRReader
 endif
@@ -34,14 +33,15 @@ endif
 SDL2_CFLAGS := $(shell pkg-config --cflags sdl2 2>/dev/null)
 SDL2_LIBS := $(shell pkg-config --libs sdl2 2>/dev/null)
 #如果SDL2不可用则禁用相关功能,并在编译时定义NPC_USE_SDL=0
-ifeq ($(strip $(SDL2_LIBS)),)#如果SDL2不可用则禁用相关功能,并在编译时定义NPC_USE_SDL=0
+ifeq ($(strip $(SDL2_LIBS)),)
 	NPC_USE_SDL := 0
 else
 	NPC_USE_SDL := 1
 endif
 
 
-CXX = ccache g++#使用ccache加速重复编译
+CXX = ccache g++#ccache加速重复编译
+#编译配置
 CXXFLAGS = -std=c++14 -O2 -faligned-new -fcf-protection=none \
 			-I$(LLVM_INCLUDEDIR) \
 			-I$(INCLUDE_DIR) \
@@ -51,7 +51,7 @@ CXXFLAGS = -std=c++14 -O2 -faligned-new -fcf-protection=none \
 #-O2优化;-faligned-new:支持对齐new（LLVM/Verilator需要）;-fcf-protection=none：关掉CET（否则某些机器链接报错）
 #-Wno:忽略LLVM/Verilator的历史遗留warning
 
-#链接LLVM需要的库
+#链接配置
 LDFLAGS = $(LLVM_LDFLAGS) \
 			-lreadline -lhistory -lncurses \
 			-lz -lpthread -lm \
@@ -60,14 +60,15 @@ LDFLAGS = $(LLVM_LDFLAGS) \
 
 VSRCS = $(wildcard $(VSRC_DIR)/*.v)
 CSRCS = \
-	$(CSRC_DIR)/main.cpp \
-	$(CSRC_DIR)/expr.cpp \
-	$(CSRC_DIR)/ftrace.cpp \
-	$(CSRC_DIR)/difftest.cpp \
-	$(CSRC_DIR)/wave.cpp \
+	$(wildcard $(CSRC_DIR)/*.cpp) \
+	$(wildcard $(CSRC_DIR)/device/*.c) \
+	$(wildcard $(CSRC_DIR)/trace/*.c) \
+	$(wildcard $(CSRC_DIR)/trace/*.cpp) \
 	$(wildcard $(CSRC_DIR)/*.c)
+HSRCS = $(shell find $(INCLUDE_DIR) -maxdepth 1 -name '*.h')
 
 VERILATOR = verilator
+#编译和链接选项，最终传给verilator进行编译链接
 VERILATOR_FLAGS = --cc --trace-fst --build -sv \
                 -Wno-UNUSEDSIGNAL -Wno-SYNCASYNCNET -Wno-PINCONNECTEMPTY \
                 -Wno-WIDTHTRUNC -Wno-PINMISSING -Wno-IMPLICIT -Wno-UNDRIVEN \

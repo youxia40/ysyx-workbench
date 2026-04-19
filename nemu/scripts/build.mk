@@ -12,7 +12,7 @@ BUILD_DIR = $(WORK_DIR)/build
 
 INC_PATH := $(WORK_DIR)/include $(INC_PATH)
 OBJ_DIR  = $(BUILD_DIR)/obj-$(NAME)$(SO)
-BINARY   = $(BUILD_DIR)/$(NAME)$(SO)
+BINARY   = $(BUILD_DIR)/$(NAME)$(SO)#最终生成的二进制文件（绝对路径）
 
 # Compilation flags
 ifeq ($(CC),clang)

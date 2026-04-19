@@ -6,8 +6,10 @@ module ysyx_25040118_lsu (
     input [31:0] src1,
     input [31:0] src2,
     input [31:0] imm,
+
     input is_load,
     input is_store,
+
     output reg [31:0] load_data
 );
 
@@ -21,15 +23,15 @@ module ysyx_25040118_lsu (
     reg mem_we;//写使能信号,store时有效
     reg [31:0] virt_addr;
     reg [31:0] mem_wdata;
-    reg [3:0] mem_wmask;
+    reg [3:0] mem_wmask;//写掩码,每位对应一个字节,store时根据funct3和地址最低两位生成
     reg [31:0] mem_rdata;
 
     wire [1:0] lane = virt_addr[1:0];//字节通道选择
     wire [31:0] aligned_v = {virt_addr[31:2], 2'b00};//按word对齐地址
-    wire [31:0] phys_addr = aligned_v - VIRT_MEM_BASE;//转换成DPI偏移地址
+    wire [31:0] phys_addr = aligned_v - VIRT_MEM_BASE;//转换成DPI偏移地址，DPI接口是以物理地址0为基准的
 
 
-    always @(*) begin
+    always @(*) begin//默认不访问内存
         mem_we = 1'b0;
         virt_addr = 32'b0;
         mem_wdata = 32'b0;
@@ -62,8 +64,9 @@ module ysyx_25040118_lsu (
             virt_addr = src1 + imm;
         end
     end
+    
 
-    //读路径:load在组合逻辑直接读取DPI返回值
+    //读，load在组合逻辑直接读取DPI返回值
     always @(*) begin
         if (is_load) begin//Load在组合逻辑里直接读DPI
 `ifndef SYNTHESIS
@@ -76,7 +79,7 @@ module ysyx_25040118_lsu (
         end
     end
 
-    //写路径:store在时钟上升沿提交写请求
+    //写，store在时钟上升沿提交写请求
     always @(posedge clk) begin
         if (mem_we && !stop) begin//Store在时钟沿提交写入
 `ifndef SYNTHESIS
@@ -84,7 +87,6 @@ module ysyx_25040118_lsu (
 `endif
         end
     end
-
 
     wire [31:0] shifted = mem_rdata >> (8*lane);//把目标字节移到最低位便于扩展
 
